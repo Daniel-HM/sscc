@@ -4,8 +4,8 @@
 <x-app-layout>
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white border-b border-gray-200">
+            <div class="dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 dark:bg-gray-800 border-b border-gray-200">
                     <div>
                         @if (session('error'))
                             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
@@ -27,27 +27,28 @@
                               action="{{ route('scan-barcode') }}" class="space-y-6">
                             <div>
                                 @csrf
-                                <label for="barcode" class="block text-sm font-medium text-gray-700">
-                                    Barcode
+                                <label for="barcode" class="block text-sm font-medium text-white">
+
                                 </label>
                                 <div class="mt-1">
                                     <input type="text" name="barcode-input" id="barcode-input"
                                            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('barcode') border-red-500 @enderror"
-                                           placeholder="Enter barcode" autofocus>
+                                           placeholder="Scan :-)" autofocus>
                                 </div>
                                 @error('barcode')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
-                                <div id="camera-preview"></div>
-
-
-                            </div>
-
-                            <div>
+                                <div class="mb-4 max-w-2xl mx-auto sm:px-6 lg:px-8" id="camera-preview" style="margin-top: 0; padding-top: 0;"></div>
+                                <canvas class="drawingBuffer" style="display: none"></canvas>
                                 <button type="submit"
                                         class="inline-flex justify-center px-4 py-2 text-sm font-medium text-red-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
                                     Process Barcode
                                 </button>
+
+                            </div>
+
+                            <div>
+
                             </div>
                         </form>
                         <script>
@@ -58,6 +59,8 @@
                                     type: "LiveStream",
                                     target: document.querySelector('#camera-preview'), // Attach the camera preview to this element
                                     constraints: {
+                                        width: 640,
+                                        height: 480,
                                         facingMode: "environment" // Use the rear camera
                                     }
                                 },

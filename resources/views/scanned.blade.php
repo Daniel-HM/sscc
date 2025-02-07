@@ -31,20 +31,21 @@
 
         </section>
     @elseif($type == 'sscc')
+        <div class="py-12">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900 dark:text-gray-100">
+                        <table class="table-auto text-sm w-full">
+                        <tr>
+                            <td>Aantal</td>
+                            <td>Naam</td>
+                            <td>EAN</td>
+                            <td>Leverancier</td>
+                        </tr>
 
-        <tr>
-            <td>Aantal</td>
-            <td>Naam</td>
-            <td>EAN</td>
-            <td>Leverancier</td>
-        </tr>
+                        @foreach ($data as $sscc)
 
-        @foreach ($data as $sscc)
-            <div class="py-12">
-                <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                        <div class="p-6 text-gray-900 dark:text-gray-100">
-                            <table class="table-auto">
+
                                 <tr>
                                     <td>{{ $sscc->aantal_ce }}</td>
                                     <td>{{ $sscc->artikel->omschrijving }}</td>
@@ -53,12 +54,12 @@
                                 </tr>
                                 @endforeach
                             </table>
-                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            @endif
+    @endif
 
 </x-app-layout>
 
