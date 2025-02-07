@@ -2,11 +2,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 @endsection
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            {{ __('Scan') }}
-        </h2>
-    </x-slot>
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -94,15 +89,13 @@
                                 barcodeInput.value = barcode;
 
                                 setTimeout(() => {
-                                    if (barcode.value.trim() !== "") {
-                                        console.log('Submitting form with barcode:', barcode.value);
-                                        // Stop Quagga before submitting the form
-                                        Quagga.stop();
+                                    if (barcode.trim() !== "") {
+                                        console.log('Submitting form with barcode:', barcode);
                                         document.getElementById('barcode-form').submit();
                                     } else {
                                         console.error('Barcode input is empty');
                                     }
-                                }, 1000); // Delay submission by 1 second to allow the user to see the barcode
+                                }, 500); // Delay submission by 1 second to allow the user to see the barcode
                             });
 
                             // Stop the camera when the form is submitted
