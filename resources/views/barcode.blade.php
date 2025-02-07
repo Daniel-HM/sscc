@@ -21,16 +21,16 @@
 
                         @if (session('warning'))
                             <div
-                                class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4"
-                                role="alert">
+                                    class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4"
+                                    role="alert">
                                 <span class="block sm:inline">{{ session('warning') }}</span>
                             </div>
                         @endif
 
 
-                        <div>
-                            <form method="POST" id="barcode-form" name="barcode-form"
-                                  action="{{ route('scan-barcode') }}" class="space-y-6">
+                        <form method="POST" id="barcode-form" name="barcode-form"
+                              action="{{ route('scan-barcode') }}" class="space-y-6">
+                            <div>
                                 @csrf
                                 <label for="barcode" class="block text-sm font-medium text-gray-700">
                                     Barcode
@@ -46,13 +46,14 @@
                                 <div id="camera-preview"></div>
 
 
-                        </div>
-                        <div>
-                            <button type="submit"
-                                    class="inline-flex justify-center px-4 py-2 text-sm font-medium text-red-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
-                                Process Barcode
-                            </button>
-                        </div>
+                            </div>
+
+                            <div>
+                                <button type="submit"
+                                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-red-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                                    Process Barcode
+                                </button>
+                            </div>
                         </form>
                         <script>
                             // Initialize QuaggaJS
@@ -66,7 +67,13 @@
                                     }
                                 },
                                 decoder: {
-                                    readers: ["code_128_reader", "ean_reader", "upc_reader"] // Supported barcode formats
+                                    // Supported barcode formats
+                                    readers: ["code_128_reader", "ean_reader", "upc_reader"
+                                    ],
+                                    debug: {
+                                        drawBoundingBox: false,
+                                        drawScanline: false
+                                    }
                                 }
                             }, function (err) {
                                 if (err) {
