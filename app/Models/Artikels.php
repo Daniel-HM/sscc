@@ -17,6 +17,7 @@ class Artikels extends Model
 
     protected $guarded = [];
 
+
     /**
      * Get the Sscc that owns the Artikels
      *

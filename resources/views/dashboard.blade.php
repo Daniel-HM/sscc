@@ -6,30 +6,28 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900 dark:text-gray-100">
-                    @foreach ($pakbonnen as $pakbon)
-                        <p>{{ $pakbon->naam }}</p>
-                    @endforeach
-
-
-                    @foreach ($sscc as $ssccNumber => $pallets)
-                        <h2>{{ $ssccNumber }}</h2>
-                        <ul>
-                            @foreach ($pallets as $pallet)
-                                <li>
-                                    ID: {{ $pallet->id }},
-                                    Artikel: {{ $pallet->artikel->omschrijving }}
-                                    EAN: {{ $pallet->artikel->ean }}
-                                    Aantal Collo: {{ $pallet->aantal_collo }},
-                                    Aantal CE: {{ $pallet->aantal_ce }}
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endforeach
-                </div>
+        <div class="dark:bg-gray-800 py-12 sm:py-32">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+                <dl class="grid grid-cols-1 gap-x-8 gap-y-16 text-center lg:grid-cols-4">
+                    <div class="mx-auto flex max-w-xs flex-col gap-y-4">
+                        <dt class="text-base/7 text-gray-200">Pakbonnen verwerkt</dt>
+                        <dd class="order-first text-3xl font-semibold tracking-tight text-stone-200 sm:text-5xl">{{ number_format($pakbonnen, 0, ',', '.') }}</dd>
+                    </div>
+                    <div class="mx-auto flex max-w-xs flex-col gap-y-4">
+                        <dt class="text-base/7 text-gray-200">SSCC labels verwerkt</dt>
+                        <dd class="order-first text-3xl font-semibold tracking-tight text-stone-200 sm:text-5xl">{{ number_format($sscc->count(), 0, ',', '.') }}</dd>
+                    </div>
+                    <div class="mx-auto flex max-w-xs flex-col gap-y-4">
+                        <dt class="text-base/7 text-gray-200">Artikels in database</dt>
+                        <dd class="order-first text-3xl font-semibold tracking-tight text-stone-200 sm:text-5xl">{{ number_format($artikels, 0, ',', '.') }}</dd>
+                    </div>
+                    <div class="mx-auto flex max-w-xs flex-col gap-y-4">
+                        <dt class="text-base/7 text-gray-200">Leveranciers in database</dt>
+                        <dd class="order-first text-3xl font-semibold tracking-tight text-stone-200 sm:text-5xl">{{ number_format($leveranciers, 0, ',', '.') }}</dd>
+                    </div>
+                </dl>
             </div>
         </div>
     </div>
 </x-app-layout>
+dark:bg-gray-800

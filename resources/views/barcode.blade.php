@@ -33,7 +33,7 @@
                                 <div class="mt-1">
                                     <input type="text" name="barcode-input" id="barcode-input"
                                            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('barcode') border-red-500 @enderror"
-                                           placeholder="Enter barcode" autofocus readonly>
+                                           placeholder="Enter barcode" autofocus>
                                 </div>
                                 @error('barcode')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -66,8 +66,8 @@
                                     readers: ["code_128_reader", "ean_reader", "upc_reader"
                                     ],
                                     debug: {
-                                        drawBoundingBox: false,
-                                        drawScanline: false
+                                        drawBoundingBox: true,
+                                        drawScanline: true
                                     }
                                 }
                             }, function (err) {

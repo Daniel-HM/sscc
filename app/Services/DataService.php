@@ -1,9 +1,12 @@
 <?php
+
 namespace App\Services;
 
 use App\Models\Artikels;
+use App\Models\Leveranciers;
 use App\Models\Pakbonnen;
 use App\Models\Sscc;
+use Illuminate\Support\Facades\DB;
 
 class DataService
 {
@@ -22,6 +25,11 @@ class DataService
         return Artikels::all();
     }
 
+    public function getAllLeveranciers()
+    {
+        return Leveranciers::all();
+    }
+
     public function getArtikelsBySscc($sscc)
     {
         return Sscc::select('sscc.*')
@@ -33,5 +41,36 @@ class DataService
             ->where('sscc.sscc', $sscc)
             ->with(['artikel', 'ordertypes'])
             ->get();
+    }
+
+    public function getArtikelByEan($ean)
+    {
+        return Artikels::where('ean', $ean)->with('leveranciers')->first();
+    }
+
+    public function countArtikels()
+    {
+        return Artikels::count();
+    }
+
+    public function countSscc()
+    {
+        return DB::table('sscc')
+
+            ->select('sscc', DB::raw('count(*) as total'))
+
+            ->groupBy('sscc')
+
+            ->get();
+    }
+
+    public function countPakbonnen()
+    {
+        return Pakbonnen::count();
+    }
+
+    public function countLeveranciers()
+    {
+        return Leveranciers::count();
     }
 }

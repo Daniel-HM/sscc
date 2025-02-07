@@ -14,14 +14,16 @@ class DashboardController extends Controller
 
     public function show()
     {
-        $pakbonnen = $this->dataService->getAllPakbonnen();
-        $sscc      = $this->dataService->getAllSscc()->groupBy('sscc');
-        $artikels  = $this->dataService->getAllArtikels();
+        $pakbonnen = $this->dataService->countPakbonnen();
+        $sscc      = $this->dataService->countSscc();
+        $artikels  = $this->dataService->countArtikels();
+        $leveranciers = $this->dataService->countLeveranciers();
 
         return view('dashboard', [
             'pakbonnen' => $pakbonnen,
             'sscc'      => $sscc,
-            'artikels'  => $artikels
+            'artikels'  => $artikels,
+            'leveranciers' => $leveranciers
         ]);
     }
 
