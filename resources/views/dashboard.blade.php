@@ -30,4 +30,3 @@
         </div>
     </div>
 </x-app-layout>
-dark:bg-gray-800
