@@ -175,7 +175,7 @@ class MailboxController extends Controller
      * */
     private function storeAttachments($attachments)
     {
-
+    $saved = false;
         foreach ($attachments as $attachment) {
             $fileName = $attachment->getName();
 
@@ -199,7 +199,7 @@ class MailboxController extends Controller
                     $saved = true;
                 } else {
                     Log::info('Pakbon ' . $baseName . ' already exists, skipping');
-                    return false;
+                    continue;
                 }
             }
         }
