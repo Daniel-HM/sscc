@@ -78,7 +78,7 @@ class MailboxController extends Controller
             // Store attachments and handle the message
             if ($this->storeAttachments($message->getAttachments())) {
                 $this->setAsSeen($message);
-                $this->moveMessage($message, env('IMAP_DONE_FOLDER'));
+                // $this->moveMessage($message, env('IMAP_DONE_FOLDER'));
                 $this->createPakbonEntryDB($this->getDateFromFirstPageOfPdf($this->directory, $this->cleanedFilename));
                 $this->convertXlsxToCsv($this->directory, $this->cleanedFilename);
 
