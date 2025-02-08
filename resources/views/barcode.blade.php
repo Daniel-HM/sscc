@@ -1,5 +1,4 @@
 @section('extraScripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 @endsection
 <x-app-layout>
     <div class="py-12">
@@ -38,7 +37,8 @@
                                 @error('barcode')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
-                                <div class="mb-4 max-w-2xl mx-auto sm:px-6 lg:px-8" id="camera-preview" style="margin-top: 0; padding-top: 0;"></div>
+                                <div class="mb-4 max-w-2xl mx-auto sm:px-6 lg:px-8" id="camera-preview"
+                                     style="margin-top: 0; padding-top: 0;"></div>
                                 <canvas class="drawingBuffer" style="display: none"></canvas>
                                 <button type="submit"
                                         class="inline-flex justify-center px-4 py-2 text-sm font-medium text-red-900 bg-blue-100 border border-transparent rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
@@ -52,58 +52,64 @@
                             </div>
                         </form>
                         <script>
-                            // Initialize QuaggaJS
-                            Quagga.init({
-                                inputStream: {
-                                    name: "Live",
-                                    type: "LiveStream",
-                                    target: document.querySelector('#camera-preview'), // Attach the camera preview to this element
-                                    constraints: {
-                                        width: 640,
-                                        height: 480,
-                                        facingMode: "environment" // Use the rear camera
-                                    }
-                                },
-                                decoder: {
-                                    // Supported barcode formats
-                                    readers: ["code_128_reader", "ean_reader", "upc_reader"
-                                    ],
-                                    debug: {
-                                        drawBoundingBox: true,
-                                        drawScanline: true
-                                    }
+                            document.addEventListener('DOMContentLoaded', function () {
+                                // Function to initialize QuaggaJS
+                                function initializeQuagga() {
+                                    Quagga.init({
+                                        inputStream: {
+                                            name: "Live",
+                                            type: "LiveStream",
+                                            target: document.querySelector('#camera-preview'), // Attach the camera preview to this element
+                                            constraints: {
+                                                width: 640,
+                                                height: 200,
+                                                facingMode: "environment" // Use the rear camera
+                                            }
+                                        },
+                                        decoder: {
+                                            readers: ["code_128_reader", "ean_reader", "upc_reader"],
+                                            debug: {
+                                                drawBoundingBox: true,
+                                                drawScanline: true
+                                            }
+                                        }
+                                    }, function (err) {
+                                        if (err) {
+                                            console.error('Error initializing QuaggaJS:', err);
+                                            return;
+                                        }
+                                        console.log('QuaggaJS initialized successfully');
+                                        Quagga.start(); // Start the barcode scanner
+                                    });
                                 }
-                            }, function (err) {
-                                if (err) {
-                                    console.error('Error initializing QuaggaJS:', err);
-                                    return;
-                                }
-                                console.log('QuaggaJS initialized successfully');
-                                Quagga.start(); // Start the barcode scanner
-                            });
 
-                            // Listen for barcode detection
-                            Quagga.onDetected(function (result) {
-                                const barcode = result.codeResult.code;
-                                console.log('Barcode detected:', barcode);
+                                window.onload = function () {
+                                    initializeQuagga();
+                                };
 
-                                // Populate the input field with the detected barcode
-                                const barcodeInput = document.getElementById('barcode-input');
-                                barcodeInput.value = barcode;
+                                // Listen for barcode detection
+                                Quagga.onDetected(function (result) {
+                                    const barcode = result.codeResult.code;
+                                    console.log('Barcode detected:', barcode);
 
-                                setTimeout(() => {
-                                    if (barcode.trim() !== "") {
-                                        console.log('Submitting form with barcode:', barcode);
-                                        document.getElementById('barcode-form').submit();
-                                    } else {
-                                        console.error('Barcode input is empty');
-                                    }
-                                }, 500); // Delay submission by 1 second to allow the user to see the barcode
-                            });
+                                    // Populate the input field with the detected barcode
+                                    const barcodeInput = document.getElementById('barcode-input');
+                                    barcodeInput.value = barcode;
 
-                            // Stop the camera when the form is submitted
-                            document.getElementById('barcode-form').addEventListener('submit', () => {
-                                Quagga.stop(); // Stop the camera
+                                    setTimeout(() => {
+                                        if (barcode.trim() !== "") {
+                                            console.log('Submitting form with barcode:', barcode);
+                                            document.getElementById('barcode-form').submit();
+                                        } else {
+                                            console.error('Barcode input is empty');
+                                        }
+                                    }, 500); // Delay submission by 0.5 seconds to allow the user to see the barcode
+                                });
+
+                                // Stop the camera when the form is submitted
+                                document.getElementById('barcode-form').addEventListener('submit', () => {
+                                    Quagga.stop(); // Stop the camera
+                                });
                             });
                         </script>
 
@@ -114,4 +120,5 @@
             </div>
         </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 </x-app-layout>
