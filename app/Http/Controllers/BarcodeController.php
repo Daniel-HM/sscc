@@ -30,11 +30,15 @@ class BarcodeController extends Controller
             if (preg_match('/^\d{18}$/', $validatedBarcode)) {
                 $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
                 $type = 'sscc';
+            } elseif (preg_match('/^\d{22}$/', $validatedBarcode)){
+                // Sometimes an SSCC is prefixed with (00) - checking for this and removing it
+                $validatedBarcode = preg_replace('(00)', '', $validatedBarcode);
+                $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
             } elseif (preg_match('/^\d{13}$/', $validatedBarcode)) {
                 $data = collect($this->dataService->getArtikelByEan($validatedBarcode));
                 $type = 'ean';
             } else {
-                $data = null;
+                $data = collect();
             }
 
             return match (true) {
@@ -49,7 +53,7 @@ class BarcodeController extends Controller
         } catch (ValidationException $e) {
             Log::warning('Invalid barcode request', [
                 'errors' => $e->errors(),
-                'input' => $request->input('barcode'),
+                'input' => $request->input('barcode-input'),
             ]);
 
             return back()->withErrors($e->validator)->withInput();
@@ -67,7 +71,7 @@ class BarcodeController extends Controller
     private function validateBarcode(Request $request): string
     {
         return $request->validate([
-            'barcode-input' => 'required|digits_between:13,18|numeric',
+            'barcode-input' => 'required|digits_between:13,22|numeric',
         ])['barcode-input'];
     }
 
