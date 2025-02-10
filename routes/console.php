@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 $schedule = app(Schedule::class);
-$schedule->job(new CheckMailbox)->everyFiveMinutes();
+$schedule->job(new CheckMailbox)->hourly();
