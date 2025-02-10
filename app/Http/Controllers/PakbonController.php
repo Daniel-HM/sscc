@@ -19,21 +19,23 @@ class PakbonController extends Controller
     public function checkForPakbonFiles()
     {
         $directories = Storage::disk('local')->allDirectories();
+        if ($directories) {
+            foreach ($directories as $directory) {
+                $files = collect(Storage::disk('local')->files($directory));
 
-        foreach ($directories as $directory) {
-            $files = collect(Storage::disk('local')->files($directory));
+                $hasRequiredFiles = $files->count() === 2 &&
+                    $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx'
+                    )->isNotEmpty() &&
+                    $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf'
+                    )->isNotEmpty();
 
-            $hasRequiredFiles = $files->count() === 2 &&
-                $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx'
-                )->isNotEmpty() &&
-                $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf'
-                )->isNotEmpty();
-
-            if ($hasRequiredFiles) {
-                $date = $this->pdfController->getDateFromFirstPageOfPdf($directory, $directory);
-                $this->createPakbonEntryDB($date, $directory);
+                if ($hasRequiredFiles) {
+                    $date = $this->pdfController->getDateFromFirstPageOfPdf($directory, $directory);
+                    $this->createPakbonEntryDB($date, $directory);
+                }
             }
         }
+        Log::info('No pakbon files, so no entries to be made');
         return true;
     }
 
@@ -58,46 +60,49 @@ class PakbonController extends Controller
         }
     }
 
-    public function moveProcessedFilesToArchive()
+    public function moveProcessedFilesToArchive(): void
     {
 
         $directories = Storage::disk('local')->allDirectories();
-        Log::info("Found directories: " . json_encode($directories)); // See what directories are found
 
-        foreach ($directories as $directory) {
+        if ($directories) {
+            Log::info("Found directories: " . json_encode($directories)); // See what directories are found
+            foreach ($directories as $directory) {
 
-            // Log the exact path we're checking
-            Log::info("Checking directory: " . $directory);
-            Log::info("Full path: " . Storage::disk('local')->path($directory));
+                // Log the exact path we're checking
+                Log::info("Checking directory: " . $directory);
+                Log::info("Full path: " . Storage::disk('local')->path($directory));
 
-            // Check if directory exists using Storage facade
-            $exists = Storage::disk('local')->exists($directory);
-            Log::info("Directory exists in Storage: " . ($exists ? 'yes' : 'no'));
+                // Check if directory exists using Storage facade
+                $exists = Storage::disk('local')->exists($directory);
+                Log::info("Directory exists in Storage: " . ($exists ? 'yes' : 'no'));
 
-            $pakbonExists = Pakbonnen::where([
-                'naam' => $directory,
-                'isVerwerkt' => true,
-                'isConverted' => true
-            ])->exists();
-            Log::info("Pakbon exists and is processed: " . ($pakbonExists ? 'yes' : 'no'));
+                $pakbonExists = Pakbonnen::where([
+                    'naam' => $directory,
+                    'isVerwerkt' => true,
+                    'isConverted' => true
+                ])->exists();
+                Log::info("Pakbon exists and is processed: " . ($pakbonExists ? 'yes' : 'no'));
 
-            if ($pakbonExists && $exists) {
-                try {
-                    $files = Storage::disk('local')->allFiles($directory);
-                    foreach ($files as $file) {
-                        $relativePath = str_replace($directory . '/', '', $file);
-                        Storage::disk('archive')->put(
-                            $directory . '/' . $relativePath,
-                            Storage::disk('local')->get($file)
-                        );
+                if ($pakbonExists && $exists) {
+                    try {
+                        $files = Storage::disk('local')->allFiles($directory);
+                        foreach ($files as $file) {
+                            $relativePath = str_replace($directory . '/', '', $file);
+                            Storage::disk('archive')->put(
+                                $directory . '/' . $relativePath,
+                                Storage::disk('local')->get($file)
+                            );
+                        }
+                        Storage::disk('local')->deleteDirectory($directory);
+                        Log::info("Moved {$directory} to archive");
+                    } catch (Exception $e) {
+                        Log::error("Move failed for {$directory}: " . $e->getMessage());
                     }
-                    Storage::disk('local')->deleteDirectory($directory);
-                    Log::info("Moved {$directory} to archive");
-                } catch (Exception $e) {
-                    Log::error("Move failed for {$directory}: " . $e->getMessage());
                 }
             }
         }
+        Log::info('No directories to move to archive.');
     }
 
 }

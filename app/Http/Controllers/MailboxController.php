@@ -36,10 +36,13 @@ class MailboxController extends Controller
             // Retrieve emails
             $messages = $inbox->query()->all()->get();
 
-            Log::info('Retrieved messages from the inbox.', ['message_count' => count($messages)]);
 
-            // Process messages, store attachments, convert .xlsx to .csv
-            $this->processMessages($messages);
+            if (count($messages) > 0) {
+                Log::info('Retrieved messages from the inbox.', ['message_count' => count($messages)]);
+                // Process messages, store attachments, convert .xlsx to .csv
+                $this->processMessages($messages);
+            }
+            Log::info('No messages from the inbox, skipping.', ['message_count' => count($messages)]);
 
         } catch (Exception $e) {
             // Log any unexpected errors
@@ -55,10 +58,10 @@ class MailboxController extends Controller
         return app(Pipeline::class)
             ->send(new \stdClass()) // or a custom DTO
             ->through([
-                fn ($passable, $next) => $this->pakbonController->checkForPakbonFiles() ? $next($passable) : false,
-                fn ($passable, $next) => $this->csvController->convertXlsxToCsv() ? $next($passable) : false,
-                fn ($passable, $next) => $this->csvController->processCsvFiles() ? $next($passable) : false,
-                fn ($passable, $next) => $this->pakbonController->moveProcessedFilesToArchive()
+                fn($passable, $next) => $this->pakbonController->checkForPakbonFiles() ? $next($passable) : false,
+                fn($passable, $next) => $this->csvController->convertXlsxToCsv() ? $next($passable) : false,
+                fn($passable, $next) => $this->csvController->processCsvFiles() ? $next($passable) : false,
+                fn($passable, $next) => $this->pakbonController->moveProcessedFilesToArchive()
             ])
             ->thenReturn();
     }
