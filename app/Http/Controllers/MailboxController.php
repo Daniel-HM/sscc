@@ -56,7 +56,6 @@ class MailboxController extends Controller
         foreach ($messages as $message) {
             try {
                 $from = $message->getFrom()[0]->mail;
-                $this->extractEmailData($message, $from);
                 if ($this->isTrustedEmail($from) && $message->hasAttachments()) {
                     $this->handleTrustedEmail($message);
                 } else {
@@ -87,8 +86,6 @@ class MailboxController extends Controller
                     'message_id' => $message->getId(),
                     'attachments_count' => $message->getAttachments()->count(),
                 ]);
-            } else {
-                $this->moveMessage($message, env('IMAP_POSSIBLE_DUPE_FOLDER'));
             }
         } catch (Exception $e) {
             // Log errors during trusted email handling
@@ -97,16 +94,6 @@ class MailboxController extends Controller
                 'message_id' => $message->getId(),
             ]);
         }
-    }
-
-    protected function extractEmailData($message, $from)
-    {
-        return [
-            'subject' => $message->getSubject()[0],
-            'from' => $from,
-            'date' => Carbon::parse($message->getDate()[0])->format('d-m-Y H:i'),
-            'attachments' => [],
-        ];
     }
 
     protected function createPakbonEntryDB($date)
@@ -176,8 +163,6 @@ class MailboxController extends Controller
      * */
     private function storeAttachments($attachments): bool
     {
-        $processedAnyAttachments = false;
-        $allProcessedSuccessfully = true;
         foreach ($attachments as $attachment) {
             $fileName = $attachment->getName();
 
@@ -197,17 +182,14 @@ class MailboxController extends Controller
                 if (Pakbonnen::where('naam', $baseName)->count() === 0) {
                     // Create directory if it does not exist
                     $this->ensureDirectoryExists($directory);
-                    if (!$this->saveAttachment($directory, $cleanedFilename, $attachment->getContent())) {
-                        $allProcessedSuccessfully = false;
-                    }
+                    $this->saveAttachment($directory, $cleanedFilename, $attachment->getContent());
                     Log::info('File ' . $fileName . ' saved to ' . $directory);
-
                 } else {
                     Log::info('Pakbon ' . $baseName . ' already exists, skipping');
                 }
             }
         }
-        return $allProcessedSuccessfully && $processedAnyAttachments;
+        return true;
     }
 
     private function convertXlsxToCsv($directory, $file)
