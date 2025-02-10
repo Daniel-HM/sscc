@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\PakbonController;
@@ -54,7 +55,7 @@ class MailboxController extends Controller
     {
         foreach ($messages as $message) {
             try {
-                $from        = $message->getFrom()[0]->mail;
+                $from = $message->getFrom()[0]->mail;
                 $this->extractEmailData($message, $from);
                 if ($this->isTrustedEmail($from) && $message->hasAttachments()) {
                     $this->handleTrustedEmail($message);
@@ -64,7 +65,7 @@ class MailboxController extends Controller
             } catch (Exception $e) {
                 // Log errors for individual message processing
                 Log::error('Error processing message.', [
-                    'error'      => $e->getMessage(),
+                    'error' => $e->getMessage(),
                     'message_id' => $message->getId(),
                 ]);
             }
@@ -83,7 +84,7 @@ class MailboxController extends Controller
                 $this->convertXlsxToCsv($this->directory, $this->cleanedFilename);
 
                 Log::info('Trusted email processed successfully.', [
-                    'message_id'        => $message->getId(),
+                    'message_id' => $message->getId(),
                     'attachments_count' => $message->getAttachments()->count(),
                 ]);
             } else {
@@ -92,7 +93,7 @@ class MailboxController extends Controller
         } catch (Exception $e) {
             // Log errors during trusted email handling
             Log::error('Error handling trusted email.', [
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'message_id' => $message->getId(),
             ]);
         }
@@ -101,9 +102,9 @@ class MailboxController extends Controller
     protected function extractEmailData($message, $from)
     {
         return [
-            'subject'     => $message->getSubject()[0],
-            'from'        => $from,
-            'date'        => Carbon::parse($message->getDate()[0])->format('d-m-Y H:i'),
+            'subject' => $message->getSubject()[0],
+            'from' => $from,
+            'date' => Carbon::parse($message->getDate()[0])->format('d-m-Y H:i'),
             'attachments' => [],
         ];
     }
@@ -114,9 +115,9 @@ class MailboxController extends Controller
         try {
             // Create a new Pakbon record
             Pakbonnen::create([
-                'naam'          => $this->directory,
+                'naam' => $this->directory,
                 'movedToFolder' => true,
-                'pakbonDatum'   => Carbon::parse($date)->format('Y-m-d'),
+                'pakbonDatum' => Carbon::parse($date)->format('Y-m-d'),
             ]);
 
             Log::info('Pakbon entry created successfully.', ['directory' => $this->directory]);
@@ -124,7 +125,7 @@ class MailboxController extends Controller
         } catch (Exception $e) {
             // Log errors during Pakbon creation
             Log::error('Error creating Pakbon DB entry.', [
-                'error'     => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'directory' => $this->directory,
             ]);
         }
@@ -145,7 +146,7 @@ class MailboxController extends Controller
         }
     }
 
-    protected function deleteMessage($message)
+    protected function deleteMessage($message): void
     {
         try {
             // Delete the message
@@ -153,13 +154,13 @@ class MailboxController extends Controller
 
             Log::info('Message deleted successfully.', [
                 'subject' => $message->getSubject()[0],
-                'from'    => $message->getFrom()[0]->mail,
+                'from' => $message->getFrom()[0]->mail,
             ]);
 
         } catch (Exception $e) {
             // Log errors during message deletion
             Log::error('Error deleting message.', [
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'message_id' => $message->getId(),
             ]);
         }
@@ -173,9 +174,9 @@ class MailboxController extends Controller
     /**
      *  Store attachments, convert .xlsx to .csv
      * */
-    private function storeAttachments($attachments)
+    private function storeAttachments($attachments): bool
     {
-    $saved = false;
+        $allProcessedSuccessfully = true;
         foreach ($attachments as $attachment) {
             $fileName = $attachment->getName();
 
@@ -183,34 +184,34 @@ class MailboxController extends Controller
             if ($this->isValidAttachment($fileName)) {
                 // Clean the filename and extract the base name
                 $cleanedFilename = $this->cleanFileName($fileName);
-                $baseName        = $this->extractBaseName($cleanedFilename);
+                $baseName = $this->extractBaseName($cleanedFilename);
 
                 // Define the directory path
-                $directory             = $baseName;
-                $this->directory       = $directory;
+                $directory = $baseName;
+                $this->directory = $directory;
                 $this->cleanedFilename = $cleanedFilename;
 
                 // Check if entry already exists
                 if (Pakbonnen::where('naam', $baseName)->count() === 0) {
                     // Create directory if it does not exist
                     $this->ensureDirectoryExists($directory);
-                    $this->saveAttachment($directory, $cleanedFilename, $attachment->getContent());
+                    if (!$this->saveAttachment($directory, $cleanedFilename, $attachment->getContent())) {
+                        $allProcessedSuccessfully = false;
+                    }
                     Log::info('File ' . $fileName . ' saved to ' . $directory);
-                    $saved = true;
+
                 } else {
                     Log::info('Pakbon ' . $baseName . ' already exists, skipping');
-                    continue;
                 }
             }
         }
-        return $saved;
-
+        return $allProcessedSuccessfully;
     }
 
     private function convertXlsxToCsv($directory, $file)
     {
-        $baseName   = $this->extractBaseName($file);
-        $inputFile  = storage_path('app/private/' . $directory . '/' . $baseName . '.xlsx');
+        $baseName = $this->extractBaseName($file);
+        $inputFile = storage_path('app/private/' . $directory . '/' . $baseName . '.xlsx');
         $outputFile = storage_path('app/private/' . $directory . '/' . $baseName . '.csv');
 
         // Read the .xlsx file into a collection
@@ -254,7 +255,7 @@ class MailboxController extends Controller
      */
     private function ensureDirectoryExists($directory)
     {
-        if (! Storage::disk('local')->exists($directory)) {
+        if (!Storage::disk('local')->exists($directory)) {
             Storage::disk('local')->makeDirectory($directory);
         }
     }
@@ -262,17 +263,23 @@ class MailboxController extends Controller
     /**
      * Save the attachment to the specified directory.
      */
-    private function saveAttachment($directory, $fileName, $content)
+    private function saveAttachment($directory, $fileName, $content): bool
     {
-        Storage::disk('local')->put($directory . '/' . $fileName, $content);
+        try {
+            Storage::disk('local')->put($directory . '/' . $fileName, $content);
+            return true;
+        } catch (Exception $e) {
+            Log::error('Failed to save attachment: ' . $e->getMessage());
+            return false;
+        }
     }
 
-    private function setAsSeen($message)
+    private function setAsSeen($message): void
     {
         $message->setFlag('Seen');
     }
 
-    private function moveMessage($message, $destination)
+    private function moveMessage($message, $destination): void
     {
         try {
             $message->move($folder_path = $destination);
@@ -292,10 +299,10 @@ class MailboxController extends Controller
 
         // Initialize the PDF parser
         $parser = new Parser();
-        $pdf    = $parser->parseFile($pdfPath);
+        $pdf = $parser->parseFile($pdfPath);
 
         // Get the first page
-        $pages     = $pdf->getPages();
+        $pages = $pdf->getPages();
         $firstPage = $pages[0];
 
         // Extract text from the first page
@@ -306,7 +313,7 @@ class MailboxController extends Controller
         preg_match($datePattern, $text, $matches);
 
         // Check if a date was found
-        if (! empty($matches)) {
+        if (!empty($matches)) {
             $date = $matches[1];
             return $date;
         } else {
