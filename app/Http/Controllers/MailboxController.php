@@ -79,7 +79,7 @@ class MailboxController extends Controller
             // Store attachments and handle the message
             if ($this->storeAttachments($message->getAttachments())) {
                 $this->setAsSeen($message);
-                // $this->moveMessage($message, env('IMAP_DONE_FOLDER'));
+                $this->moveMessage($message, env('IMAP_DONE_FOLDER'));
                 $this->createPakbonEntryDB($this->getDateFromFirstPageOfPdf($this->directory, $this->cleanedFilename));
                 $this->convertXlsxToCsv($this->directory, $this->cleanedFilename);
 
@@ -176,12 +176,14 @@ class MailboxController extends Controller
      * */
     private function storeAttachments($attachments): bool
     {
+        $processedAnyAttachments = false;
         $allProcessedSuccessfully = true;
         foreach ($attachments as $attachment) {
             $fileName = $attachment->getName();
 
             // Check if the filename matches the criteria
             if ($this->isValidAttachment($fileName)) {
+                $processedAnyAttachments = true;
                 // Clean the filename and extract the base name
                 $cleanedFilename = $this->cleanFileName($fileName);
                 $baseName = $this->extractBaseName($cleanedFilename);
@@ -205,7 +207,7 @@ class MailboxController extends Controller
                 }
             }
         }
-        return $allProcessedSuccessfully;
+        return $allProcessedSuccessfully && $processedAnyAttachments;
     }
 
     private function convertXlsxToCsv($directory, $file)
