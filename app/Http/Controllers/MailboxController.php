@@ -233,7 +233,7 @@ class MailboxController extends Controller
      */
     private function isValidAttachment($fileName)
     {
-        return preg_match('/SPS-\d+ uitgebreid\.xlsx/', $fileName) || preg_match('/SPS-\d+\.pdf/', $fileName);
+        return preg_match('/SPS-\d+(?:\sutgebreid)?\.xlsx/', $fileName) || preg_match('/SPS-\d+\.pdf/', $fileName);
     }
 
     /**
