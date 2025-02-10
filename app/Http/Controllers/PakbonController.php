@@ -1,128 +1,103 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\Artikels;
-use App\Models\Assortimentsgroep;
-use App\Models\Kassagroep;
-use App\Models\Leveranciers;
-use App\Models\Ordertypes;
 use App\Models\Pakbonnen;
-use App\Models\Sscc;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Rap2hpoutre\FastExcel\FastExcel;
 
 class PakbonController extends Controller
 {
-    public function findCsvFiles()
+
+    public function __construct(private readonly PdfController $pdfController)
     {
-        $fileList    = [];
-        $directories = Storage::allDirectories();
-        Log::info('Starting CSV to DB operation');
+    }
+
+    public function checkForPakbonFiles()
+    {
+        $directories = Storage::disk('local')->allDirectories();
+
         foreach ($directories as $directory) {
-            $files = Storage::files($directory);
-            // Filter for .csv files
-            $csvFiles = array_filter($files, function ($file) {
-                return pathinfo($file, PATHINFO_EXTENSION) === 'csv';
-            });
-/*             // Get only filenames + ext
-            $csvFileNames = array_map(function ($file) {
-                return basename($file);
-            }, $csvFiles);
-            */
+            $files = collect(Storage::disk('local')->files($directory));
 
-            $fileList = array_merge($fileList, $csvFiles);
+            $hasRequiredFiles = $files->count() === 2 &&
+                $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx'
+                )->isNotEmpty() &&
+                $files->filter(fn($file) => strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf'
+                )->isNotEmpty();
 
-        }
-
-        $this->importCsvToDb($fileList);
-        Log::info('Finished CSV to DB operation');
-        return view('verwerk');
-    }
-
-    protected function getFileNameNoExtension($fileName)
-    {
-        return preg_replace('/\.(csv)$/', '', $fileName);
-    }
-
-    protected function importCsvToDb($fileList)
-    {
-        DB::beginTransaction();
-        try {
-            foreach ($fileList as $file) {
-                $path       = storage_path('app/private/' . $file);
-                $pakbonName = basename($this->getFileNameNoExtension($file));
-
-                $pakbon = Pakbonnen::where([['naam', '=', $pakbonName], ['isVerwerkt', '=', 0]])->first();
-                if (! $pakbon) {
-                    Log::info($pakbonName . ' is al verwerkt, skipping');
-                    continue;
-                }
-
-                $collection = (new FastExcel)->import($path);
-
-                $kassagroepen        = [];
-                $assortimentsgroepen = [];
-                $ordertypes          = [];
-                $leveranciers        = [];
-                $artikels            = [];
-                $ssccs               = [];
-
-                foreach ($collection as $line) {
-                    $kassagroepen[$line['Kassagroep']] = Kassagroep::firstOrCreate(['omschrijving' => $line['Kassagroep']],
-                        ['omschrijving' => $line['Kassagroep']]
-                    );
-
-                    $assortimentsgroepen[$line['Assortimentsgroep']] = Assortimentsgroep::firstOrCreate(['omschrijving' => $line['Assortimentsgroep']],
-                        ['omschrijving' => $line['Assortimentsgroep']]
-                    );
-
-                    $ordertypes[$line['Ordertype']] = Ordertypes::firstOrCreate(['omschrijving' => $line['Ordertype']],
-                        ['omschrijving' => $line['Ordertype']]
-                    );
-
-                    $leveranciers[$line['Leverancier']] = Leveranciers::firstOrCreate(['naam' => $line['Leverancier']],
-                        ['naam' => $line['Leverancier']]
-                    );
-
-                    $artikels[$line['EAN']] = Artikels::firstOrCreate(
-                        ['ean' => $line['EAN']],
-                        [
-                            'artikelnummer_it'          => $line['Artikel'],
-                            'artikelnummer_leverancier' => $line['Ext. Artikel'],
-                            'omschrijving'              => $line['Omschrijving'],
-                            'kassagroep_id'             => $kassagroepen[$line['Kassagroep']]->id,
-                            'assortimentsgroep_id'      => $assortimentsgroepen[$line['Assortimentsgroep']]->id,
-                            'leverancier_id'            => $leveranciers[$line['Leverancier']]->id,
-                        ]
-                    );
-                    $now     = DB::raw('CURRENT_TIMESTAMP');
-                    $ssccs[] = [
-                        'sscc'         => $line['Palletnummer'],
-                        'aantal_collo' => $line['Aantal Collo'],
-                        'aantal_ce'    => $line['Aantal CE'],
-                        'artikel_id'   => $artikels[$line['EAN']]->id,
-                        'ordertype_id' => $ordertypes[$line['Ordertype']]->id,
-                        'pakbon_id'    => $pakbon->id,
-                        'updated_at'   => $now,
-                        'created_at'   => $now,
-                    ];
-                }
-
-                Sscc::insert($ssccs);
-
-                $pakbon->isVerwerkt = 1;
-                $pakbon->save();
+            if ($hasRequiredFiles) {
+                $date = $this->pdfController->getDateFromFirstPageOfPdf($directory, $directory);
+                $this->createPakbonEntryDB($date, $directory);
             }
+        }
+        return true;
+    }
 
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
+    protected function createPakbonEntryDB($date, $directory): void
+    {
+        try {
+            // Create a new Pakbon record
+            Pakbonnen::firstOrCreate([
+                'naam' => $directory,
+                'movedToFolder' => true,
+                'pakbonDatum' => Carbon::parse($date)->format('Y-m-d'),
+            ]);
+
+            Log::info('Pakbon entry created successfully.', ['directory' => $directory]);
+
+        } catch (Exception $e) {
+            // Log errors during Pakbon creation
+            Log::error('Error creating Pakbon DB entry.', [
+                'error' => $e->getMessage(),
+                'directory' => $directory,
+            ]);
         }
     }
 
+    public function moveProcessedFilesToArchive()
+    {
 
+        $directories = Storage::disk('local')->allDirectories();
+        Log::info("Found directories: " . json_encode($directories)); // See what directories are found
+
+        foreach ($directories as $directory) {
+
+            // Log the exact path we're checking
+            Log::info("Checking directory: " . $directory);
+            Log::info("Full path: " . Storage::disk('local')->path($directory));
+
+            // Check if directory exists using Storage facade
+            $exists = Storage::disk('local')->exists($directory);
+            Log::info("Directory exists in Storage: " . ($exists ? 'yes' : 'no'));
+
+            $pakbonExists = Pakbonnen::where([
+                'naam' => $directory,
+                'isVerwerkt' => true,
+                'isConverted' => true
+            ])->exists();
+            Log::info("Pakbon exists and is processed: " . ($pakbonExists ? 'yes' : 'no'));
+
+            if ($pakbonExists && $exists) {
+                try {
+                    $files = Storage::disk('local')->allFiles($directory);
+                    foreach ($files as $file) {
+                        $relativePath = str_replace($directory . '/', '', $file);
+                        Storage::disk('archive')->put(
+                            $directory . '/' . $relativePath,
+                            Storage::disk('local')->get($file)
+                        );
+                    }
+                    Storage::disk('local')->deleteDirectory($directory);
+                    Log::info("Moved {$directory} to archive");
+                } catch (Exception $e) {
+                    Log::error("Move failed for {$directory}: " . $e->getMessage());
+                }
+            }
+        }
+    }
 
 }

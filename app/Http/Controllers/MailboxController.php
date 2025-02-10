@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\PakbonController;
 use App\Models\Pakbonnen;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Routing\Pipeline;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Rap2hpoutre\FastExcel\FastExcel;
-use Smalot\PdfParser\Parser;
+
+
 use Webklex\IMAP\Facades\Client;
 
 class MailboxController extends Controller
 {
 
-    private $directory;
-    private $cleanedFilename;
+    public function __construct(private readonly PakbonController $pakbonController, private readonly CsvController $csvController)
+    {
+    }
 
+    /**
+     * @throws Exception
+     */
     public function checkMailbox()
     {
 
@@ -44,11 +48,19 @@ class MailboxController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
         }
-        Log::info('Successfully processed messages');
-        $pakbonController = new PakbonController;
-        $pakbonController->findCsvFiles();
-        // return response()->json(['error' => 'An error occurred while processing the mailbox.'], 500);
-        return view('mailbox');
+
+
+        // Check if pakbon files have moved, make a note in DB
+
+        return app(Pipeline::class)
+            ->send(new \stdClass()) // or a custom DTO
+            ->through([
+                fn ($passable, $next) => $this->pakbonController->checkForPakbonFiles() ? $next($passable) : false,
+                fn ($passable, $next) => $this->csvController->convertXlsxToCsv() ? $next($passable) : false,
+                fn ($passable, $next) => $this->csvController->processCsvFiles() ? $next($passable) : false,
+                fn ($passable, $next) => $this->pakbonController->moveProcessedFilesToArchive()
+            ])
+            ->thenReturn();
     }
 
     protected function processMessages($messages)
@@ -58,8 +70,6 @@ class MailboxController extends Controller
                 $from = $message->getFrom()[0]->mail;
                 if ($this->isTrustedEmail($from) && $message->hasAttachments()) {
                     $this->handleTrustedEmail($message);
-                } else {
-                    $this->deleteMessage($message);
                 }
             } catch (Exception $e) {
                 // Log errors for individual message processing
@@ -79,9 +89,6 @@ class MailboxController extends Controller
             if ($this->storeAttachments($message->getAttachments())) {
                 $this->setAsSeen($message);
                 $this->moveMessage($message, env('IMAP_DONE_FOLDER'));
-                $this->createPakbonEntryDB($this->getDateFromFirstPageOfPdf($this->directory, $this->cleanedFilename));
-                $this->convertXlsxToCsv($this->directory, $this->cleanedFilename);
-
                 Log::info('Trusted email processed successfully.', [
                     'message_id' => $message->getId(),
                     'attachments_count' => $message->getAttachments()->count(),
@@ -89,71 +96,12 @@ class MailboxController extends Controller
             }
         } catch (Exception $e) {
             // Log errors during trusted email handling
-            Log::error('Error handling trusted email.', [
-                'error' => $e->getMessage(),
-                'message_id' => $message->getId(),
-            ]);
+            Log::error('Error handling trusted email.');
         }
     }
 
-    protected function createPakbonEntryDB($date)
-    {
 
-        try {
-            // Create a new Pakbon record
-            Pakbonnen::create([
-                'naam' => $this->directory,
-                'movedToFolder' => true,
-                'pakbonDatum' => Carbon::parse($date)->format('Y-m-d'),
-            ]);
-
-            Log::info('Pakbon entry created successfully.', ['directory' => $this->directory]);
-
-        } catch (Exception $e) {
-            // Log errors during Pakbon creation
-            Log::error('Error creating Pakbon DB entry.', [
-                'error' => $e->getMessage(),
-                'directory' => $this->directory,
-            ]);
-        }
-    }
-
-    protected function setConvertedToTrue($entry)
-    {
-        try {
-            Pakbonnen::where('naam', $entry)->update(['isConverted' => 1]);
-
-            Log::info('Pakbon entry "isConverted" set to true for ' . $entry);
-
-        } catch (Exception $e) {
-            Log::error('Error updating pakbon entry - converted to true failed', [
-                'error' => $e->getMessage(),
-                'entry' => $entry,
-            ]);
-        }
-    }
-
-    protected function deleteMessage($message): void
-    {
-        try {
-            // Delete the message
-            $message->move($folder_path = "Trash");
-
-            Log::info('Message deleted successfully.', [
-                'subject' => $message->getSubject()[0],
-                'from' => $message->getFrom()[0]->mail,
-            ]);
-
-        } catch (Exception $e) {
-            // Log errors during message deletion
-            Log::error('Error deleting message.', [
-                'error' => $e->getMessage(),
-                'message_id' => $message->getId(),
-            ]);
-        }
-    }
-
-    protected function isTrustedEmail($from)
+    protected function isTrustedEmail($from): bool
     {
         return $from == env('TRUSTED_EMAIL_ADDRESS') or $from == env('TRUSTED_EMAIL_ADDRESS2');
     }
@@ -168,60 +116,46 @@ class MailboxController extends Controller
 
             // Check if the filename matches the criteria
             if ($this->isValidAttachment($fileName)) {
-                $processedAnyAttachments = true;
                 // Clean the filename and extract the base name
-                $cleanedFilename = $this->cleanFileName($fileName);
-                $baseName = $this->extractBaseName($cleanedFilename);
+                $cleanedFilename = $this->cleanFileName($fileName); // name.ext
+                $baseName = $this->extractBaseName($cleanedFilename); // name
 
                 // Define the directory path
                 $directory = $baseName;
-                $this->directory = $directory;
-                $this->cleanedFilename = $cleanedFilename;
 
                 // Check if entry already exists
                 if (Pakbonnen::where('naam', $baseName)->count() === 0) {
                     // Create directory if it does not exist
                     $this->ensureDirectoryExists($directory);
-                    $this->saveAttachment($directory, $cleanedFilename, $attachment->getContent());
-                    Log::info('File ' . $fileName . ' saved to ' . $directory);
+                    if (!Storage::disk('local')->exists($directory . '/' . $cleanedFilename)) {
+                        $this->saveAttachment($directory, $cleanedFilename, $attachment->getContent());
+                        Log::info('File ' . $fileName . ' saved to ' . $directory);
+                    } else {
+                        Log::info('File ' . $fileName . ' already exists.');
+                    }
                 } else {
                     Log::info('Pakbon ' . $baseName . ' already exists, skipping');
                 }
             }
         }
+        Log::info('Successfully saved attachments.');
         return true;
     }
 
-    private function convertXlsxToCsv($directory, $file)
-    {
-        $baseName = $this->extractBaseName($file);
-        $inputFile = storage_path('app/private/' . $directory . '/' . $baseName . '.xlsx');
-        $outputFile = storage_path('app/private/' . $directory . '/' . $baseName . '.csv');
-
-        // Read the .xlsx file into a collection
-        $collection = (new FastExcel)->import($inputFile);
-
-        // Export the collection to a .csv file
-        $convert = (new FastExcel($collection))->export($outputFile);
-        if ($convert) {
-            $this->setConvertedToTrue($directory);
-            Log::info($baseName . '.xlsx successfully converted to ' . $baseName . '.csv');
-        }
-
-    }
 
     /**
      * Check if the attachment filename is valid.
      */
-    private function isValidAttachment($fileName)
+    private function isValidAttachment($fileName): bool
     {
-        return preg_match('/SPS-\d+(?:\sutgebreid)?\.xlsx/', $fileName) || preg_match('/SPS-\d+\.pdf/', $fileName);
+        return preg_match('/SPS-\d+ uitgebreid\.xlsx/', $fileName) || preg_match('/SPS-\d+\.pdf/', $fileName);
     }
+
 
     /**
      * Remove ' uitgebreid' from the filename.
      */
-    private function cleanFileName($fileName)
+    private function cleanFileName($fileName): string
     {
         return str_replace(' uitgebreid', '', $fileName);
     }
@@ -229,7 +163,7 @@ class MailboxController extends Controller
     /**
      * Extract the base name (e.g., 'SPS-00145524') from the filename.
      */
-    private function extractBaseName($fileName)
+    private function extractBaseName($fileName): string
     {
         return preg_replace('/\.(xlsx|pdf)$/', '', $fileName);
     }
@@ -237,7 +171,7 @@ class MailboxController extends Controller
     /**
      * Ensure the directory exists.
      */
-    private function ensureDirectoryExists($directory)
+    private function ensureDirectoryExists($directory): void
     {
         if (!Storage::disk('local')->exists($directory)) {
             Storage::disk('local')->makeDirectory($directory);
@@ -266,7 +200,7 @@ class MailboxController extends Controller
     private function moveMessage($message, $destination): void
     {
         try {
-            $message->move($folder_path = $destination);
+            $message->move($destination);
             Log::info('Message with subject ' . $message->getSubject()[0] . ' from ' . $message->getFrom()[0]->mail . ' has been moved to ' . $destination);
         } catch (Exception $e) {
             Log::error('Something went wrong', [
@@ -275,34 +209,5 @@ class MailboxController extends Controller
         }
     }
 
-    public function getDateFromFirstPageOfPdf($directory, $file)
-    {
-        Log::info('Retrieving date from PDF file: ' . $file);
-        // Path to the PDF file
-        $pdfPath = storage_path('app/private/' . $directory . '/' . $file);
-
-        // Initialize the PDF parser
-        $parser = new Parser();
-        $pdf = $parser->parseFile($pdfPath);
-
-        // Get the first page
-        $pages = $pdf->getPages();
-        $firstPage = $pages[0];
-
-        // Extract text from the first page
-        $text = $firstPage->getText();
-
-        // Use a regular expression to find a date in the text
-        $datePattern = '/(\d{2}-\d{2}-\d{4})\S*/';
-        preg_match($datePattern, $text, $matches);
-
-        // Check if a date was found
-        if (!empty($matches)) {
-            $date = $matches[1];
-            return $date;
-        } else {
-            return false;
-        }
-    }
 
 }

@@ -37,6 +37,13 @@ return [
             'throw' => false,
             'report' => false,
         ],
+        'archive' => [
+            'driver' => 'local',
+            'root' => storage_path('app/archive'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
 
         'public' => [
             'driver' => 'local',
