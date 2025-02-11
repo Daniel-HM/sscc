@@ -41,9 +41,9 @@ class MailboxController extends Controller
                 Log::info('Retrieved messages from the inbox.', ['message_count' => count($messages)]);
                 // Process messages, store attachments, convert .xlsx to .csv
                 $this->processMessages($messages);
+            } else {
+                Log::info('No messages from the inbox, skipping.', ['message_count' => count($messages)]);
             }
-            Log::info('No messages from the inbox, skipping.', ['message_count' => count($messages)]);
-
         } catch (Exception $e) {
             // Log any unexpected errors
             Log::error('An error occurred while checking the mailbox.', [
@@ -68,6 +68,7 @@ class MailboxController extends Controller
 
     protected function processMessages($messages)
     {
+        Log::info('Processing messages.', ['message_count' => count($messages)]);
         foreach ($messages as $message) {
             try {
                 $from = $message->getFrom()[0]->mail;
