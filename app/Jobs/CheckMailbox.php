@@ -15,7 +15,7 @@ class CheckMailbox implements ShouldQueue
      *
      * @var int
      */
-    public $timeout = 120;
+    public $timeout = 1200;
 
     /**
      * Create a new job instance.
