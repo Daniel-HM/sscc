@@ -56,12 +56,24 @@ class MailboxController extends Controller
         // Check if pakbon files have moved, make a note in DB
 
         return app(Pipeline::class)
-            ->send(new \stdClass()) // or a custom DTO
+            ->send(new \stdClass())
             ->through([
-                fn($passable, $next) => $this->pakbonController->checkForPakbonFiles() ? $next($passable) : false,
-                fn($passable, $next) => $this->csvController->convertXlsxToCsv() ? $next($passable) : false,
-                fn($passable, $next) => $this->csvController->processCsvFiles() ? $next($passable) : false,
-                fn($passable, $next) => $this->pakbonController->moveProcessedFilesToArchive()
+                function($passable, $next) {
+                    $this->pakbonController->checkForPakbonFiles(); // Just execute
+                    return $next($passable); // Always continue
+                },
+                function($passable, $next) {
+                    $this->csvController->convertXlsxToCsv();
+                    return $next($passable);
+                },
+                function($passable, $next) {
+                    $this->csvController->processCsvFiles();
+                    return $next($passable);
+                },
+                function($passable, $next) {
+                    $this->pakbonController->moveProcessedFilesToArchive();
+                    return $next($passable);
+                }
             ])
             ->thenReturn();
     }

@@ -11,6 +11,13 @@ class CheckMailbox implements ShouldQueue
     use Queueable;
 
     /**
+     * The number of seconds the job can run before timing out.
+     *
+     * @var int
+     */
+    public $timeout = 120;
+
+    /**
      * Create a new job instance.
      */
     public function __construct()
@@ -24,7 +31,7 @@ class CheckMailbox implements ShouldQueue
     public function handle(): void
     {
         $mailboxController = app(MailboxController::class);
-        Log::info('Starting check mailbox job');
+        Log::info('Starting check mailbox job.');
         $mailboxController->checkMailbox();
 
     }

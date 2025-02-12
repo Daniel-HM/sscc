@@ -60,9 +60,9 @@ class PakbonController extends Controller
         }
     }
 
-    public function moveProcessedFilesToArchive(): void
+    public function moveProcessedFilesToArchive(): bool
     {
-
+        Log::info('Reached moveProcessedFilesToArchive.');
         $directories = Storage::disk('local')->allDirectories();
 
         if ($directories) {
@@ -101,8 +101,12 @@ class PakbonController extends Controller
                     }
                 }
             }
+            Log::info('Everything that needed moving, has been moved.');
+            return true;
         }
+
         Log::info('No directories to move to archive.');
+        return true;
     }
 
 }

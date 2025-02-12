@@ -10,6 +10,7 @@ use App\Models\Ordertypes;
 use App\Models\Pakbonnen;
 use App\Models\Sscc;
 use Exception;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -88,7 +89,10 @@ class CsvController extends Controller
 
     }
 
-    public function processCsvFiles()
+    /**
+     * @throws Exception
+     */
+    public function processCsvFiles(): bool
     {
         $fileList = [];
         $directories = Storage::allDirectories();
@@ -102,13 +106,13 @@ class CsvController extends Controller
                 });
 
                 $fileList = array_merge($fileList, $csvFiles);
-
             }
 
             if ($this->importCsvToDb($fileList)) {
                 Log::info('Finished CSV to DB operation');
                 return true;
             }
+            return true;
         }
         Log::info('No directories found, skipping CSV processing.');
         return true;
@@ -116,15 +120,22 @@ class CsvController extends Controller
 
     protected function importCsvToDb($fileList)
     {
-        DB::beginTransaction();
         try {
             foreach ($fileList as $file) {
+                DB::beginTransaction();
+
                 $path = storage_path('app/private/' . $file);
                 $pakbonName = pathinfo(basename($file), PATHINFO_FILENAME);
 
-                $pakbon = Pakbonnen::where([['naam', '=', $pakbonName], ['isVerwerkt', '=', 0]])->first();
+                $pakbon = Pakbonnen::lockForUpdate()
+                    ->where([
+                        ['naam', '=', $pakbonName],
+                        ['isVerwerkt', '=', 0]
+                    ])->first();
+
                 if (!$pakbon) {
                     Log::info($pakbonName . ' is al verwerkt, skipping');
+                    DB::commit();
                     continue;
                 }
 
@@ -138,58 +149,86 @@ class CsvController extends Controller
                 $ssccs = [];
 
                 foreach ($collection as $line) {
-                    $kassagroepen[$line['Kassagroep']] = Kassagroep::firstOrCreate(['omschrijving' => $line['Kassagroep']],
-                        ['omschrijving' => $line['Kassagroep']]
-                    );
+                    try {
+                        $kassagroepen[$line['Kassagroep']] = Kassagroep::updateOrCreate(
+                            ['omschrijving' => $line['Kassagroep']],
+                            ['omschrijving' => $line['Kassagroep']]
+                        );
 
-                    $assortimentsgroepen[$line['Assortimentsgroep']] = Assortimentsgroep::firstOrCreate(['omschrijving' => $line['Assortimentsgroep']],
-                        ['omschrijving' => $line['Assortimentsgroep']]
-                    );
+                        $assortimentsgroepen[$line['Assortimentsgroep']] = Assortimentsgroep::updateOrCreate(
+                            ['omschrijving' => $line['Assortimentsgroep']],
+                            ['omschrijving' => $line['Assortimentsgroep']]
+                        );
 
-                    $ordertypes[$line['Ordertype']] = Ordertypes::firstOrCreate(['omschrijving' => $line['Ordertype']],
-                        ['omschrijving' => $line['Ordertype']]
-                    );
+                        $ordertypes[$line['Ordertype']] = Ordertypes::updateOrCreate(
+                            ['omschrijving' => $line['Ordertype']],
+                            ['omschrijving' => $line['Ordertype']]
+                        );
 
-                    $leveranciers[$line['Leverancier']] = Leveranciers::firstOrCreate(['naam' => $line['Leverancier']],
-                        ['naam' => $line['Leverancier']]
-                    );
+                        $leveranciers[$line['Leverancier']] = Leveranciers::updateOrCreate(
+                            ['naam' => $line['Leverancier']],
+                            ['naam' => $line['Leverancier']]
+                        );
 
-                    $artikels[$line['EAN']] = Artikels::firstOrCreate(
-                        ['ean' => $line['EAN']],
-                        [
-                            'artikelnummer_it' => $line['Artikel'],
-                            'artikelnummer_leverancier' => $line['Ext. Artikel'],
-                            'omschrijving' => $line['Omschrijving'],
-                            'kassagroep_id' => $kassagroepen[$line['Kassagroep']]->id,
-                            'assortimentsgroep_id' => $assortimentsgroepen[$line['Assortimentsgroep']]->id,
-                            'leverancier_id' => $leveranciers[$line['Leverancier']]->id,
-                        ]
-                    );
-                    $now = DB::raw('CURRENT_TIMESTAMP');
-                    $ssccs[] = [
-                        'sscc' => $line['Palletnummer'],
-                        'aantal_collo' => $line['Aantal Collo'],
-                        'aantal_ce' => $line['Aantal CE'],
-                        'artikel_id' => $artikels[$line['EAN']]->id,
-                        'ordertype_id' => $ordertypes[$line['Ordertype']]->id,
-                        'pakbon_id' => $pakbon->id,
-                        'updated_at' => $now,
-                        'created_at' => $now,
-                    ];
+                        // For Artikels, use try-catch specifically for unique constraint violations
+                        try {
+                            $artikels[$line['EAN']] = Artikels::updateOrCreate(
+                                ['ean' => $line['EAN']],
+                                [
+                                    'artikelnummer_it' => $line['Artikel'],
+                                    'artikelnummer_leverancier' => $line['Ext. Artikel'],
+                                    'omschrijving' => $line['Omschrijving'],
+                                    'kassagroep_id' => $kassagroepen[$line['Kassagroep']]->id,
+                                    'assortimentsgroep_id' => $assortimentsgroepen[$line['Assortimentsgroep']]->id,
+                                    'leverancier_id' => $leveranciers[$line['Leverancier']]->id,
+                                ]
+                            );
+                        } catch (UniqueConstraintViolationException $e) {
+                            // If creation failed due to race condition, fetch the existing record
+                            $artikels[$line['EAN']] = Artikels::where('ean', $line['EAN'])->first();
+                        }
+
+                        $now = DB::raw('CURRENT_TIMESTAMP');
+                        $ssccs[] = [
+                            'sscc' => $line['Palletnummer'],
+                            'aantal_collo' => $line['Aantal Collo'],
+                            'aantal_ce' => $line['Aantal CE'],
+                            'artikel_id' => $artikels[$line['EAN']]->id,
+                            'ordertype_id' => $ordertypes[$line['Ordertype']]->id,
+                            'pakbon_id' => $pakbon->id,
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ];
+
+                        // Insert SSCCs in smaller chunks to prevent memory issues
+                        if (count($ssccs) >= 1000) {
+                            Sscc::insert($ssccs);
+                            $ssccs = [];
+                        }
+
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        throw $e;
+                    }
                 }
 
-                Sscc::insert($ssccs);
+                // Insert any remaining SSCCs
+                if (!empty($ssccs)) {
+                    Sscc::insert($ssccs);
+                }
 
                 $pakbon->isVerwerkt = 1;
                 $pakbon->save();
+
+                DB::commit();
             }
 
-            DB::commit();
+            return true;
+
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
-        return true;
     }
 
     /**
