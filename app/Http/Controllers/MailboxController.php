@@ -129,7 +129,7 @@ class MailboxController extends Controller
     {
         foreach ($attachments as $attachment) {
             $fileName = $attachment->getName();
-
+            Log::info('Storing attachment(s).');
             // Check if the filename matches the criteria
             if ($this->isValidAttachment($fileName)) {
                 // Clean the filename and extract the base name
