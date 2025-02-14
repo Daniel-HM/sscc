@@ -23,9 +23,9 @@ class Artikels extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function Sscc(): HasMany
+    public function Sscc(): hasMany
     {
-        return $this->hasMany(Sscc::class);
+        return $this->hasMany(Sscc::class, 'artikel_id', 'id');
     }
 
     /**
@@ -35,7 +35,7 @@ class Artikels extends Model
      */
     public function Assortimentsgroep(): BelongsTo
     {
-        return $this->belongsTo(Assortimentsgroep::class, 'assortimentsgroep_id');
+        return $this->belongsTo(Assortimentsgroep::class);
     }
 
     /**
@@ -45,16 +45,16 @@ class Artikels extends Model
      */
     public function Kassagroep(): BelongsTo
     {
-        return $this->belongsTo(Kassagroep::class, 'kassagroep_id');
+        return $this->belongsTo(Kassagroep::class);
     }
 
     /**
-     * Get the Leveranciers associated with the Artikels
+     * Get the Leverancier associated with the Artikel
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function Leveranciers(): HasOne
+    public function Leveranciers(): BelongsTo
     {
-        return $this->hasOne(Leveranciers::class, 'id', 'leverancier_id');
+        return $this->belongsTo(Leveranciers::class, 'leverancier_id', 'id');
     }
 }

@@ -21,12 +21,13 @@ Route::get('/check-mailbox', [MailboxController::class, 'checkMailbox']);
 
 Route::get('/verwerk', [PakbonController::Class, 'findCsvFiles']);
 
-Route::get('/scan-barcode', function () {
+Route::get('/search', function () {
     return view('barcode');
 })->middleware(['auth']);
 
-Route::post('/scan-barcode', [BarcodeController::class, 'processBarcode'])
+Route::post('/search', [BarcodeController::class, 'processBarcode'])
     ->middleware(['auth'])
-    ->name('scan-barcode');
+    ->name('search');
+
 
 require __DIR__ . '/auth.php';

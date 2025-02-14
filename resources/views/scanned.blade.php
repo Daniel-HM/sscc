@@ -5,6 +5,8 @@
                 {{ __('EAN '.$barcode) }}
             @elseif($type == 'sscc')
                 {{ __('SSCC '.$barcode) }}
+            @elseif($type == 'sps')
+                {{ __('Pakbon '.$barcode) }}
             @endif
         </h2>
     </x-slot>
@@ -36,15 +38,14 @@
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <table class="table-auto text-sm w-full">
-                        <tr>
-                            <td>Aantal</td>
-                            <td>Naam</td>
-                            <td>EAN</td>
-                            <td>Leverancier</td>
-                        </tr>
+                            <tr>
+                                <td>Aantal</td>
+                                <td>Naam</td>
+                                <td>EAN</td>
+                                <td>Leverancier</td>
+                            </tr>
 
-                        @foreach ($data as $sscc)
-
+                            @foreach ($data as $sscc)
 
                                 <tr>
                                     <td>{{ $sscc->aantal_ce }}</td>
@@ -52,13 +53,47 @@
                                     <td>{{ $sscc->artikel->ean }}</td>
                                     <td>{{ $sscc->artikel->leveranciers->naam }}</td>
                                 </tr>
-                                @endforeach
-                            </table>
+                            @endforeach
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
+    @elseif($type == 'sps')
+        <div class="py-12">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900 dark:text-gray-100">
+                        @foreach($data as $leverancierNaam => $artikelGroep)
+                            <div>{{ $leverancierNaam }}</div>
+                            <table class="table-auto text-sm w-full">
+                                <tr>
+                                    <td>Aantal</td>
+                                    <td>Naam</td>
+                                    <td>EAN</td>
+                                    <td>Ordertype</td>
+                                    <td>Assortimentsgroep</td>
+                                    <td>Kassagroep</td>
+                                </tr>
+                                @foreach ($artikelGroep as $item)
+
+                                    <tr>
+                                        <td>{{ $item->aantal_ce }}</td>
+                                        <td>{{ $item->omschrijving }}</td>
+                                        <td>{{ $item->ean }}</td>
+                                        <td>{{ $item->leveranciers->naam }}</td>
+                                        <td>{{ $item->ordertype }}</td>
+                                        <td>{{ $item->assortimentsgroep->omschrijving }}</td>
+                                        <td>{{ $item->kassagroep->omschrijving }}</td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
     @endif
 
 </x-app-layout>

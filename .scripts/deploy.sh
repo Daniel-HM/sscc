@@ -25,6 +25,9 @@ npm install && npm run build
 # Run database migrations
 php artisan migrate --force
 
+# Restart queue
+php artisan queue:restart
+
 # Exit maintenance mode
 php artisan up
 

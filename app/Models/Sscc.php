@@ -5,6 +5,7 @@ use App\Models\Artikels;
 use App\Models\Ordertypes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sscc extends Model
@@ -20,30 +21,30 @@ class Sscc extends Model
     /**
      * Get all of the Artikels for the Sscc
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function Artikels(): HasMany
+    public function Artikels(): BelongsTo
     {
-        return $this->hasMany(Artikels::class, 'id', 'artikel_id');
+        return $this->belongsTo(Artikels::class);
     }
 
     /**
      * Get all of the Pakbonnen for the Sscc
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function Pakbonnen(): HasMany
+    public function Pakbonnen(): BelongsTo
     {
-        return $this->hasMany(Pakbonnen::class);
+        return $this->belongsTo(Pakbonnen::class, 'pakbon_id');
     }
 
     // Define the relationship to the Artikel model
     public function artikel()
     {
-        return $this->belongsTo(Artikels::class, 'artikel_id');
+        return $this->belongsTo(Artikels::class);
     }
 
-    public function ordertypes()
+    public function Ordertypes(): BelongsTo
     {
         return $this->belongsTo(Ordertypes::class, 'ordertype_id');
     }

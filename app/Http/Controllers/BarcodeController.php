@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\DataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class BarcodeController extends Controller
@@ -26,19 +27,33 @@ class BarcodeController extends Controller
                 'barcode' => $validatedBarcode,
             ]);
             // SSCC or EAN13?
+            Log::debug('Validating barcode', ['barcode' => $validatedBarcode]);
 
-            if (preg_match('/^\d{18}$/', $validatedBarcode)) {
+            if (preg_match('/^SPS-\d{8}$/', $validatedBarcode)) {
+                // Handles: SPS-00138001
+                Log::debug('Matched SPS pattern');
+                $data = collect($this->dataService->getArtikelsByPakbon($validatedBarcode));
+                $type = 'sps';
+            } elseif (preg_match('/^\d{18}$/', $validatedBarcode)) {
+                // Handles: 187119048018038368
+                Log::debug('Matched SSCC-18 pattern');
                 $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
                 $type = 'sscc';
-            } elseif (preg_match('/^\d{22}$/', $validatedBarcode)){
-                // Sometimes an SSCC is prefixed with (00) - checking for this and removing it
-                $validatedBarcode = preg_replace('(00)', '', $validatedBarcode);
+            } elseif (preg_match('/^\(00\)\d{18}$/', $validatedBarcode)) {
+                // Handles: (00)187119048018038368
+                Log::debug('Matched SSCC with (00) prefix');
+                $validatedBarcode = Str::replace('(00)', '', $validatedBarcode);
                 $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
+                $type = 'sscc';
             } elseif (preg_match('/^\d{13}$/', $validatedBarcode)) {
+                // Handles: 8711904221867
+                Log::debug('Matched EAN pattern');
                 $data = collect($this->dataService->getArtikelByEan($validatedBarcode));
                 $type = 'ean';
             } else {
+                Log::debug('No pattern matched');
                 $data = collect();
+                $type = null;
             }
 
             return match (true) {
@@ -51,7 +66,7 @@ class BarcodeController extends Controller
             };
 
         } catch (ValidationException $e) {
-            Log::warning('Invalid barcode request', [
+            Log::warning('Ongeldige zoekactie.', [
                 'errors' => $e->errors(),
                 'input' => $request->input('barcode-input'),
             ]);
@@ -63,7 +78,7 @@ class BarcodeController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return back()->with('error', 'An unexpected error occurred');
+            return back()->with('error', 'Onverwachte fout!');
 
         }
     }
@@ -71,7 +86,7 @@ class BarcodeController extends Controller
     private function validateBarcode(Request $request): string
     {
         return $request->validate([
-            'barcode-input' => 'required|digits_between:13,22|numeric',
+            'barcode-input' => 'required|between:12,22',
         ])['barcode-input'];
     }
 
@@ -79,7 +94,7 @@ class BarcodeController extends Controller
     {
         Log::info('No data found for barcode', ['barcode' => $barcode]);
 
-        return back()->with('warning', 'No information found for this barcode');
+        return back()->with('warning', 'Helaas niets gevonden.');
     }
 
 
