@@ -24,7 +24,7 @@ Route::view('profile', 'profile')
 
 Route::get('/search', function () {
     return view('search');
-})->middleware(['auth'])->name('search');
+})->middleware(['auth']);
 
 Route::post('/search', [BarcodeController::class, 'processBarcode'])
     ->middleware(['auth'])
