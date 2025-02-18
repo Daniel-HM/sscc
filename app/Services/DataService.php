@@ -6,6 +6,7 @@ use App\Models\Artikels;
 use App\Models\Leveranciers;
 use App\Models\Pakbonnen;
 use App\Models\Sscc;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DataService
@@ -20,9 +21,13 @@ class DataService
         return Sscc::with('artikel')->get();
     }
 
-    public function getAllArtikels()
+    public function getAllArtikels($paginated)
     {
-        return Artikels::all();
+        if ($paginated) {
+            return Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep'])->paginate($paginated);
+        } else {
+            return Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep'])->get();
+        }
     }
 
     public function getAllLeveranciers()
@@ -32,16 +37,18 @@ class DataService
 
     public function getArtikelsBySscc($sscc)
     {
-        return Sscc::select('sscc.*')
-            ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
-            ->join('artikels', 'sscc.artikel_id', '=', 'artikels.id')
-            ->join('assortimentsgroep', 'artikels.assortimentsgroep_id', '=', 'assortimentsgroep.id')
-            ->join('kassagroep', 'artikels.kassagroep_id', '=', 'kassagroep.id')
-            ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
-            ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
-            ->where('sscc.sscc', $sscc)
-            ->with(['artikel', 'ordertypes'])
-            ->get();
+        return Cache::remember($sscc, now()->addHours(48), function () use ($sscc) {
+            return Sscc::select('sscc.*')
+                ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
+                ->join('artikels', 'sscc.artikel_id', '=', 'artikels.id')
+                ->join('assortimentsgroep', 'artikels.assortimentsgroep_id', '=', 'assortimentsgroep.id')
+                ->join('kassagroep', 'artikels.kassagroep_id', '=', 'kassagroep.id')
+                ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
+                ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
+                ->where('sscc.sscc', $sscc)
+                ->with(['artikel', 'ordertypes'])
+                ->get();
+        });
     }
 
     public function getArtikelByEan($ean)
@@ -74,19 +81,17 @@ class DataService
 
     public function getArtikelsByPakbon($sps)
     {
-        return Artikels::select('artikels.*', 'sscc.aantal_ce as aantal_ce', 'ordertypes.omschrijving as ordertype')
-            ->join('sscc', 'artikels.id', '=', 'sscc.artikel_id')
-            ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
-            ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
-            ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
-            ->with([
-                'kassagroep',
-                'assortimentsgroep'
-            ])
-            ->where('pakbonnen.naam', $sps)
-            ->orderBy('artikels.id')
-            ->orderBy('sscc.sscc')
-            ->get()
-            ->groupBy('leveranciers.naam');
+        return Cache::remember($sps, now()->addHours(48), function () use ($sps) {
+            return Artikels::select('artikels.*', 'sscc.aantal_ce as aantal_ce', 'ordertypes.omschrijving as ordertype')
+                ->join('sscc', 'artikels.id', '=', 'sscc.artikel_id')
+                ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
+                ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
+                ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
+                ->where('pakbonnen.naam', $sps)
+                ->orderBy('artikels.id')
+                ->orderBy('sscc.sscc')
+                ->get()
+                ->groupBy('leveranciers.naam');
+        });
     }
 }

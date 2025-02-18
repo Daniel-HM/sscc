@@ -30,9 +30,9 @@
                                 <div>
                                     <label for="search"
                                            class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Gebruik
-                                        de scanfunctie voor EAN13 of SSCC - of vul pakbonnummer in 'SPS-00000000</label>
+                                        de scanfunctie voor EAN13 of SSCC - of vul pakbonnummer in 'SPS-00000000'</label>
                                     <input type="text" id="barcode-input" name="barcode-input"
-                                           class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-96 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 dark:shadow-sm-light"
+                                           class="ssccInput"
                                            required autofocus>
                                 </div>
                                 @error('barcode')
@@ -40,7 +40,7 @@
                                 @enderror
 
                                 <button type="submit"
-                                        class="mt-4 mb-4 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
+                                        class="ssccButton">
                                     Zoeken
                                 </button>
                                 <div class="mb-4 mt-4 max-w-2xl mx-auto sm:px-1 lg:px-2" id="camera-preview"></div>

@@ -34,34 +34,45 @@ class BarcodeController extends Controller
                 Log::debug('Matched SPS pattern');
                 $data = collect($this->dataService->getArtikelsByPakbon($validatedBarcode));
                 $type = 'sps';
+                $table = true;
             } elseif (preg_match('/^\d{18}$/', $validatedBarcode)) {
                 // Handles: 187119048018038368
                 Log::debug('Matched SSCC-18 pattern');
                 $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
                 $type = 'sscc';
+                $table = true;
             } elseif (preg_match('/^\(00\)\d{18}$/', $validatedBarcode)) {
                 // Handles: (00)187119048018038368
                 Log::debug('Matched SSCC with (00) prefix');
                 $validatedBarcode = Str::replace('(00)', '', $validatedBarcode);
                 $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
                 $type = 'sscc';
+                $table = true;
             } elseif (preg_match('/^\d{13}$/', $validatedBarcode)) {
                 // Handles: 8711904221867
                 Log::debug('Matched EAN pattern');
                 $data = collect($this->dataService->getArtikelByEan($validatedBarcode));
                 $type = 'ean';
+                $table = false;
             } else {
                 Log::debug('No pattern matched');
                 $data = collect();
                 $type = null;
+                $table = false;
             }
 
             return match (true) {
                 $data->isEmpty() => $this->handleEmptyResult($validatedBarcode),
-                default => view('scanned', [
+                $type === 'ean' => view('artikel', [
                     'data' => $data,
                     'barcode' => $validatedBarcode,
-                    'type' => $type
+                    'type' => $type,
+                ]),
+                default => view('result', [
+                    'data' => $data,
+                    'barcode' => $validatedBarcode,
+                    'type' => $type,
+                    'table' => $table
                 ])
             };
 

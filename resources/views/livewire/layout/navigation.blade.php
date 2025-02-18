@@ -34,7 +34,16 @@ new class extends Component
                         {{ __('Dashboard') }}
                     </x-nav-link>
                     <x-nav-link :href="route('search')" :active="request()->routeIs('search')" wire:navigate>
-                        {{ __('Scan') }}
+                        {{ __('Zoeken') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('artikels')" :active="request()->routeIs('artikels')" wire:navigate>
+                        {{ __('Artikels') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('leveranciers')" :active="request()->routeIs('leveranciers')" wire:navigate>
+                        {{ __('Leveranciers') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('upload.show')" :active="request()->routeIs('upload.show')" wire:navigate>
+                        {{ __('Upload') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -88,7 +97,16 @@ new class extends Component
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('search')" :active="request()->routeIs('search')" wire:navigate>
-                {{ __('Scan') }}
+                {{ __('Zoeken') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('artikels')" :active="request()->routeIs('artikels')" wire:navigate>
+                {{ __('Artikels') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('leveranciers')" :active="request()->routeIs('leveranciers')" wire:navigate>
+                {{ __('Leveranciers') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('upload.show')" :active="request()->routeIs('upload.show')" wire:navigate>
+                {{ __('Upload') }}
             </x-responsive-nav-link>
         </div>
 
