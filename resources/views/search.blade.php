@@ -97,6 +97,15 @@
                             }
                         }
                     });
+
+                    // Configure Tesseract for better OCR
+                    await this.worker.setParameters({
+                        tessedit_char_whitelist: '0123456789()[]{}',  // Only allow digits and some brackets
+                        tessedit_pageseg_mode: '6',                   // Assume a single uniform block of text
+                        preserve_interword_spaces: '0',               // Don't preserve spaces between words
+                        tessedit_ocr_engine_mode: '1'                 // Use LSTM neural network only
+                    });
+
                     console.log('Tesseract worker initialized successfully');
                 } catch (error) {
                     console.error('Error initializing Tesseract:', error);
@@ -262,7 +271,7 @@
                     const timeSinceLastSuccess = now - lastSuccess;
 
                     // If no successful scan in 20 seconds
-                    if (timeSinceLastSuccess > 5000) {
+                    if (timeSinceLastSuccess > 20000) {
                         console.log('No barcode detected for an extended period');
                         this.showFeedback('No barcode detected. Switching to OCR mode...', 'info');
 
@@ -328,29 +337,179 @@
                         });
                     });
 
+                    // If a barcode is detected
                     if (quaggaResult) {
-                        console.log('QuaggaJS found barcode on still image:', quaggaResult.codeResult.code);
-                        await this.processDetectedCode(quaggaResult.codeResult.code, 'still-image-barcode');
+                        const code = quaggaResult.codeResult.code;
+                        const format = quaggaResult.codeResult.format || 'unknown';
+                        console.log(`QuaggaJS found ${format} barcode on still image:`, code);
+                        await this.processDetectedCode(code, 'still-image-barcode');
                         return;
                     }
 
-                    // If QuaggaJS failed, try OCR
+                    // If QuaggaJS failed, try OCR with preprocessing
                     console.log('Starting OCR processing on captured image');
-                    const ocrResult = await this.worker.recognize(imageUrl);
-                    console.log('OCR complete, result:', ocrResult);
 
-                    // Extract numbers and handle SSCC format
-                    let numbers = ocrResult.data.text.replace(/[^\d()]/g, '');
-                    console.log('Raw extracted numbers:', numbers);
+                    // Preprocess the image to improve OCR accuracy
+                    const enhancedCanvas = document.createElement('canvas');
+                    enhancedCanvas.width = canvas.width;
+                    enhancedCanvas.height = canvas.height;
+                    const enhancedCtx = enhancedCanvas.getContext('2d');
 
-                    // Handle (00) prefix for SSCC
-                    if (numbers.startsWith('(00)')) {
-                        numbers = numbers.substring(4);
+                    // Draw the original image
+                    enhancedCtx.drawImage(canvas, 0, 0);
+
+                    // Get image data for processing
+                    const imageData = enhancedCtx.getImageData(0, 0, enhancedCanvas.width, enhancedCanvas.height);
+                    const data = imageData.data;
+
+                    // Apply contrast enhancement and binarization
+                    for (let i = 0; i < data.length; i += 4) {
+                        // Convert to grayscale
+                        const avg = (data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11);
+
+                        // Apply threshold (binarization)
+                        const newValue = avg > 128 ? 255 : 0;
+
+                        // Set all RGB channels to the new value
+                        data[i] = newValue;     // Red
+                        data[i + 1] = newValue; // Green
+                        data[i + 2] = newValue; // Blue
+                        data[i + 3] = 255;      // Alpha (fully opaque)
                     }
 
-                    // Remove any remaining parentheses
-                    numbers = numbers.replace(/[()]/g, '');
-                    console.log('Processed numbers:', numbers);
+                    // Put the modified image data back
+                    enhancedCtx.putImageData(imageData, 0, 0);
+
+                    // Get the processed image URL
+                    const enhancedImageUrl = enhancedCanvas.toDataURL('image/png');
+
+                    // Show the enhanced image for debugging (optional, can be removed in production)
+                    const debugEnhancedImg = document.createElement('img');
+                    debugEnhancedImg.src = enhancedImageUrl;
+                    debugEnhancedImg.style.position = 'fixed';
+                    debugEnhancedImg.style.top = '170px';
+                    debugEnhancedImg.style.right = '10px';
+                    debugEnhancedImg.style.maxWidth = '150px';
+                    debugEnhancedImg.style.border = '2px solid blue';
+                    debugEnhancedImg.style.zIndex = '9999';
+                    debugEnhancedImg.style.display = 'none'; // Set to 'block' to debug
+                    document.body.appendChild(debugEnhancedImg);
+
+                    // Auto-remove debug image after 5 seconds
+                    setTimeout(() => {
+                        if (debugEnhancedImg.parentNode) debugEnhancedImg.parentNode.removeChild(debugEnhancedImg);
+                    }, 5000);
+
+                    // Run OCR on both the original and enhanced images
+                    const originalOcrResult = await this.worker.recognize(imageUrl);
+                    console.log('Original OCR complete, result:', originalOcrResult);
+
+                    const enhancedOcrResult = await this.worker.recognize(enhancedImageUrl);
+                    console.log('Enhanced OCR complete, result:', enhancedOcrResult);
+
+                    // Choose the result with more confidence or more digits
+                    let ocrResult = originalOcrResult;
+
+                    // Extract digits from both results
+                    const originalDigits = originalOcrResult.data.text.replace(/[^\d]/g, '');
+                    const enhancedDigits = enhancedOcrResult.data.text.replace(/[^\d]/g, '');
+
+                    // Use the result with more digits
+                    if (enhancedDigits.length > originalDigits.length) {
+                        console.log('Using enhanced OCR result (more digits)');
+                        ocrResult = enhancedOcrResult;
+                    } else if (enhancedOcrResult.data.confidence > originalOcrResult.data.confidence + 10) {
+                        console.log('Using enhanced OCR result (higher confidence)');
+                        ocrResult = enhancedOcrResult;
+                    } else {
+                        console.log('Using original OCR result');
+                    }
+
+                    // Extract numbers with better handling
+                    console.log('Raw OCR text:', ocrResult.data.text);
+
+                    // First, try to find patterns that resemble barcodes
+                    const eanPattern = /\d{13}/g;
+                    const ssccPattern = /\d{18}/g;
+                    const anyDigits = /\d+/g;
+
+                    // Look for SSCC-18 patterns first (prioritizing longer codes)
+                    const ssccMatches = ocrResult.data.text.match(ssccPattern) || [];
+                    const eanMatches = ocrResult.data.text.match(eanPattern) || [];
+
+                    if (ssccMatches.length > 0) {
+                        // Found SSCC-18 patterns
+                        console.log('Found SSCC-18 pattern:', ssccMatches[0]);
+                        numbers = ssccMatches[0];
+                    } else if (eanMatches.length > 0) {
+                        // Found EAN-13 patterns
+                        console.log('Found EAN-13 pattern:', eanMatches[0]);
+                        numbers = eanMatches[0];
+                    } else {
+                        // No exact patterns found, extract all digits
+                        const allDigits = ocrResult.data.text.replace(/[^\d]/g, '');
+                        console.log('All digits extracted:', allDigits);
+
+                        // If we have exactly 18 digits, treat as SSCC
+                        if (allDigits.length === 18) {
+                            console.log('Extracted exactly 18 digits (SSCC)');
+                            numbers = allDigits;
+                        }
+                        // If we have exactly 13 digits, treat as EAN
+                        else if (allDigits.length === 13) {
+                            console.log('Extracted exactly 13 digits (EAN)');
+                            numbers = allDigits;
+                        }
+                        // If we have more than 18 digits, try to extract the first 18 or 13
+                        else if (allDigits.length > 18) {
+                            console.log('More than 18 digits found, extracting prefix');
+                            if (allDigits.substring(0, 18).match(/^\d{18}$/)) {
+                                numbers = allDigits.substring(0, 18);
+                                console.log('Extracted first 18 digits as SSCC:', numbers);
+                            } else if (allDigits.substring(0, 13).match(/^\d{13}$/)) {
+                                numbers = allDigits.substring(0, 13);
+                                console.log('Extracted first 13 digits as EAN:', numbers);
+                            } else {
+                                // Get the longest sequence of digits
+                                const allNumbers = allDigits.match(anyDigits) || [];
+                                numbers = allNumbers.reduce((longest, current) =>
+                                    current.length > longest.length ? current : longest, '');
+                                console.log('Using longest number sequence:', numbers);
+                            }
+                        } else {
+                            // Get the longest sequence of digits
+                            const cleanedText = ocrResult.data.text
+                                .replace(/[^\w\s]/g, '')  // Remove non-alphanumeric except spaces
+                                .replace(/[a-zA-Z]/g, ''); // Remove letters
+
+                            console.log('Cleaned OCR text:', cleanedText);
+
+                            // Extract all digit sequences
+                            const allNumbers = cleanedText.match(anyDigits) || [];
+                            console.log('All number sequences found:', allNumbers);
+
+                            if (allNumbers.length > 0) {
+                                // Get the longest sequence of digits
+                                numbers = allNumbers.reduce((longest, current) =>
+                                    current.length > longest.length ? current : longest, '');
+
+                                console.log('Using longest number sequence:', numbers);
+                            } else {
+                                // Fallback to the old method
+                                numbers = ocrResult.data.text.replace(/[^\d()]/g, '');
+
+                                // Handle (00) prefix for SSCC
+                                if (numbers.startsWith('(00)')) {
+                                    numbers = numbers.substring(4);
+                                }
+
+                                // Remove any remaining parentheses
+                                numbers = numbers.replace(/[()]/g, '');
+                            }
+                        }
+                    }
+
+                    console.log('Final processed numbers:', numbers);
 
                     if (numbers.length > 0) {
                         await this.processDetectedCode(numbers, 'ocr');
@@ -480,11 +639,13 @@
                         this.lastDetectionAttempt = Date.now();
 
                         // Check confidence score
-                        if (result.codeResult.confidence > 0.75) {
-                            console.log(`Barcode detected with high confidence (${result.codeResult.confidence.toFixed(2)}):`, result.codeResult.code);
+                        const confidence = result.codeResult.confidence || 0;
+
+                        if (confidence > 0.75) {
+                            console.log(`Barcode detected with high confidence (${confidence.toFixed(2)}):`, result.codeResult.code);
                             this.processDetectedCode(result.codeResult.code, 'live-barcode');
                         } else {
-                            console.log(`Barcode detected but low confidence (${result.codeResult.confidence.toFixed(2)}):`, result.codeResult.code);
+                            console.log(`Barcode detected but low confidence (${confidence.toFixed(2)}):`, result.codeResult.code);
                             // For low confidence, we increment failedAttempts but still try to process
                             this.failedAttempts += 0.5; // Count as half an attempt
                             this.processDetectedCode(result.codeResult.code, 'live-barcode-low-confidence');
@@ -698,7 +859,7 @@
                                         'SPS-00000000'</label>
                                     <input type="text" id="barcode-input" name="barcode-input"
                                            class="ssccInput"
-                                           required autofocus>
+                                           required>
                                 </div>
                                 @error('barcode')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>

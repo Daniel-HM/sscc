@@ -1,4 +1,4 @@
-@section('extraScripts')
+@section('barcodeCreator')
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/barcodes/JsBarcode.ean-upc.min.js"></script>
 @endsection
 <x-app-layout>
@@ -47,14 +47,16 @@
         </div>
     </section>
     <script>
-        JsBarcode(".barcode").init();
-        JsBarcode("#barcode", "{{ $data['ean'] }}", {
-            format: "ean13",
-            lineColor: 'black',
-            width: 3,
-            height: 80,
-            displayValue: true,
-            flat: true
+        document.addEventListener('DOMContentLoaded', async function () {
+            JsBarcode(".barcode").init();
+            JsBarcode("#barcode", "{{ $data['ean'] }}", {
+                format: "ean13",
+                lineColor: 'black',
+                width: 3,
+                height: 80,
+                displayValue: true,
+                flat: true
+            });
         });
     </script>
 </x-app-layout>

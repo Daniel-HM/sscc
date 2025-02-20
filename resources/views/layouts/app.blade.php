@@ -35,6 +35,9 @@
     </main>
 </div>
 @yield('extraScripts')
+@hasSection('barcodeCreator')
+    @yield('barcodeCreator')
+@endif
 @hasSection('scannerScripts')
     @yield('scannerScripts')
 @endif
