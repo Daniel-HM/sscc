@@ -3,53 +3,53 @@
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js'></script>
     <script>
         // Create a namespace for our scanner
-        window.BarcodeScanner = window.BarcodeScanner || {
+        window.BarcodeScanner = {
             isInitialized: false,
             worker: null,
             validBarcodes: [],
             isProcessing: false,
             failedAttempts: 0,
             MAX_FAILED_ATTEMPTS: 3,
-            TEST_MODE: false,
+            noDetectionTimeout: null,
+            lastSuccessTime: 0,
+            lastDetectionAttempt: 0,
+            originalConsoleLog: null,
+            originalConsoleInfo: null,
+
+            // Utility function to check if we're on a scanner page
+            isOnScannerPage() {
+                return document.getElementById('camera-preview') !== null;
+            },
 
             // Setup console filtering to suppress asm.js messages
             setupConsoleFiltering() {
                 // Store the original console methods
-                const originalConsoleLog = console.log;
-                const originalConsoleInfo = console.info;
+                this.originalConsoleLog = console.log;
+                this.originalConsoleInfo = console.info;
 
                 // Override console.log to filter out asm.js compilation messages
-                console.log = function(...args) {
-                    // Convert args to string for easy checking
+                console.log = (...args) => {
                     const messageStr = args.join(' ');
-                    // Filter out asm.js compilation messages
                     if ((typeof messageStr === 'string' &&
-                            (messageStr.includes('asm.js') &&
-                                (messageStr.includes('compiled') || messageStr.includes('compiling')))) ||
-                        (args[0] && args[0].status &&
-                            args[0].status.toString().includes('asm.js'))) {
+                            messageStr.includes('asm.js') &&
+                            (messageStr.includes('compiled') || messageStr.includes('compiling'))) ||
+                        (args[0] && args[0].status && args[0].status.toString().includes('asm.js'))) {
                         return; // Don't log this message
                     }
-                    // Pass through all other messages
-                    originalConsoleLog.apply(console, args);
+                    this.originalConsoleLog.apply(console, args);
                 };
 
-                // Do the same for console.info which might also be used
-                console.info = function(...args) {
+                // Do the same for console.info
+                console.info = (...args) => {
                     const messageStr = args.join(' ');
                     if ((typeof messageStr === 'string' &&
-                            (messageStr.includes('asm.js') &&
-                                (messageStr.includes('compiled') || messageStr.includes('compiling')))) ||
-                        (args[0] && args[0].status &&
-                            args[0].status.toString().includes('asm.js'))) {
+                            messageStr.includes('asm.js') &&
+                            (messageStr.includes('compiled') || messageStr.includes('compiling'))) ||
+                        (args[0] && args[0].status && args[0].status.toString().includes('asm.js'))) {
                         return;
                     }
-                    originalConsoleInfo.apply(console, args);
+                    this.originalConsoleInfo.apply(console, args);
                 };
-
-                // Store original methods for cleanup
-                this.originalConsoleLog = originalConsoleLog;
-                this.originalConsoleInfo = originalConsoleInfo;
             },
 
             // Restore original console methods on cleanup
@@ -69,6 +69,12 @@
                     return;
                 }
 
+                // Make sure we're on a scanner page
+                if (!this.isOnScannerPage()) {
+                    console.log('Not on scanner page, skipping initialization');
+                    return;
+                }
+
                 console.log('Starting scanner initialization');
                 this.isInitialized = true;
 
@@ -85,9 +91,8 @@
                 try {
                     this.worker = await Tesseract.createWorker('eng', 1, {
                         logger: message => {
-                            // Additional filtering at the source
-                            if (!message.status ||
-                                (!message.status.includes('asm.js'))) {
+                            // Filter asm.js messages
+                            if (!message.status || !message.status.includes('asm.js')) {
                                 console.log('Tesseract:', message);
                             }
                         }
@@ -105,22 +110,54 @@
 
             // UI Setup
             async setupUI() {
-                await this.fetchValidBarcodes();
+                try {
+                    // Add a manual OCR button
+                    this.addManualOCRButton();
 
-                // Small delay to ensure DOM is ready
-                await new Promise(resolve => setTimeout(resolve, 100));
+                    // Fetch valid barcodes
+                    await this.fetchValidBarcodes();
 
-                if (this.TEST_MODE) {
-                    // Test mode - setup file input and refresh button
-                    this.setupFileInput();
-                    this.setupRefreshButton();
-                } else {
-                    // Live mode - setup camera
+                    // Small delay to ensure DOM is ready
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Setup camera
                     this.setupQuagga();
+
+                    // Schedule periodic refresh
+                    setInterval(() => this.fetchValidBarcodes(), 5 * 60 * 1000);
+                } catch (error) {
+                    console.error('Error in setup:', error);
+                }
+            },
+
+            // Add a button to manually trigger OCR processing
+            addManualOCRButton() {
+                const preview = document.getElementById('camera-preview');
+                if (!preview || preview.parentNode === null) {
+                    console.log('Camera preview not found, skipping OCR button');
+                    return;
                 }
 
-                // Schedule periodic refresh
-                setInterval(() => this.fetchValidBarcodes(), 5 * 60 * 1000);
+                // Check if button already exists
+                if (document.getElementById('manual-ocr-btn')) {
+                    return;
+                }
+
+                // Create button element
+                const ocrButton = document.createElement('button');
+                ocrButton.id = 'manual-ocr-btn';
+                ocrButton.textContent = 'Take Photo (OCR)';
+                ocrButton.className = 'px-4 py-2 bg-blue-500 text-white rounded mb-2 mt-2';
+                ocrButton.style.display = 'block';
+                ocrButton.style.margin = '10px auto';
+
+                // Add click event
+                ocrButton.addEventListener('click', () => {
+                    this.takePhotoAndProcessWithOCR();
+                });
+
+                // Add to DOM after the preview element
+                preview.parentNode.insertBefore(ocrButton, preview.nextSibling);
             },
 
             // Fetch valid barcodes from server
@@ -139,102 +176,6 @@
                     }
                 } catch (error) {
                     console.error('Error fetching valid barcodes:', error);
-                }
-            },
-
-            setupFileInput() {
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.accept = 'image/*';
-                fileInput.className = 'mb-4';
-
-                const preview = document.querySelector('#camera-preview');
-                if (preview) {
-                    preview.before(fileInput);
-                    fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-                }
-            },
-
-            setupRefreshButton() {
-                const fileInput = document.querySelector('input[type="file"]');
-                if (!fileInput) return;
-
-                const refreshButton = document.createElement('button');
-                refreshButton.textContent = 'Refresh Codes';
-                refreshButton.className = 'mb-4 ml-2 px-4 py-2 bg-blue-500 text-white rounded';
-                refreshButton.onclick = () => this.fetchValidBarcodes();
-                fileInput.after(refreshButton);
-            },
-
-            async handleFileSelect(e) {
-                console.log('File selected, beginning processing');
-
-                if (e.target.files && e.target.files[0]) {
-                    const imageFile = e.target.files[0];
-                    console.log('Processing file:', imageFile.name);
-
-                    const imageUrl = URL.createObjectURL(imageFile);
-                    console.log('Created image URL');
-
-                    try {
-                        // First try QuaggaJS
-                        console.log('Starting QuaggaJS detection');
-                        const quaggaResult = await new Promise((resolve, reject) => {
-                            Quagga.decodeSingle({
-                                inputStream: {
-                                    size: 800,
-                                    singleChannel: false,
-                                    type: "ImageStream"
-                                },
-                                decoder: {
-                                    readers: ["code_128_reader", "ean_reader", "upc_reader"]
-                                },
-                                locate: true,
-                                src: imageUrl
-                            }, function(result) {
-                                console.log('QuaggaJS processing complete');
-                                if (result && result.codeResult) {
-                                    console.log('QuaggaJS found barcode:', result.codeResult.code);
-                                    resolve(result);
-                                } else {
-                                    console.log('QuaggaJS could not find barcode, will try OCR');
-                                    resolve(null);
-                                }
-                            });
-                        });
-
-                        // If no barcode detected, try OCR
-                        if (!quaggaResult) {
-                            console.log('Starting OCR processing');
-                            const ocrResult = await this.worker.recognize(imageUrl);
-                            console.log('OCR complete, result:', ocrResult);
-
-                            // Extract numbers and handle SSCC format
-                            let numbers = ocrResult.data.text.replace(/[^\d()]/g, '');
-                            console.log('Raw extracted numbers:', numbers);
-
-                            // Handle (00) prefix for SSCC
-                            if (numbers.startsWith('(00)')) {
-                                numbers = numbers.substring(4);
-                            }
-
-                            // Remove any remaining parentheses
-                            numbers = numbers.replace(/[()]/g, '');
-                            console.log('Processed numbers:', numbers);
-
-                            if (numbers.length > 0) {
-                                await this.processDetectedCode(numbers, 'ocr');
-                            }
-                        } else {
-                            await this.processDetectedCode(quaggaResult.codeResult.code, 'barcode');
-                        }
-
-                    } catch (error) {
-                        console.error('Error processing image:', error);
-                    } finally {
-                        URL.revokeObjectURL(imageUrl);
-                        console.log('Cleaned up image URL');
-                    }
                 }
             },
 
@@ -274,7 +215,8 @@
                                 barcodeInput.value = code;
                                 // Submit the form after a brief delay
                                 setTimeout(() => {
-                                    document.getElementById('barcode-form').submit();
+                                    const form = document.getElementById('barcode-form');
+                                    if (form) form.submit();
                                 }, 500);
                             }
                         } else {
@@ -309,23 +251,126 @@
 
                 // Set a timeout to check if no barcodes have been detected for a while
                 this.noDetectionTimeout = setTimeout(() => {
+                    // First check if we're still on a scanner page
+                    if (!this.isOnScannerPage()) {
+                        console.log('No longer on scanner page, cancelling timeout');
+                        return;
+                    }
+
                     const now = Date.now();
                     const lastSuccess = this.lastSuccessTime || 0;
                     const timeSinceLastSuccess = now - lastSuccess;
 
-                    // If no successful scan in 20 seconds and camera is active
-                    if (timeSinceLastSuccess > 7000 && !this.TEST_MODE) {
+                    // If no successful scan in 20 seconds
+                    if (timeSinceLastSuccess > 5000) {
                         console.log('No barcode detected for an extended period');
-                        this.showFeedback('No barcode detected. Try adjusting the camera position or lighting.', 'info');
+                        this.showFeedback('No barcode detected. Switching to OCR mode...', 'info');
 
+                        // Switch to OCR mode for this scan
+                        this.takePhotoAndProcessWithOCR();
+
+                        // Continue monitoring after OCR attempt
+                        setTimeout(() => this.setupNoDetectionTimeout(), 5000);
+                    } else {
                         // Reset the timeout
                         this.setupNoDetectionTimeout();
                     }
                 }, 20000); // Check every 20 seconds
             },
 
+            // Method to take a photo from the active video stream and process with OCR
+            async takePhotoAndProcessWithOCR() {
+                // Check if we're still on a scanner page
+                if (!this.isOnScannerPage()) {
+                    console.log('No longer on scanner page, cancelling OCR processing');
+                    return;
+                }
+
+                // Get the video element that Quagga is using
+                const videoElement = document.querySelector('#camera-preview video');
+                if (!videoElement || !videoElement.videoWidth) {
+                    console.error('Cannot access video stream for OCR processing');
+                    return;
+                }
+
+                try {
+                    // Create a canvas the same size as the video
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    // Draw the current video frame to the canvas
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+                    // Convert to image data URL
+                    const imageUrl = canvas.toDataURL('image/png');
+
+                    // Show visual feedback
+                    this.showFeedback('Processing with OCR...', 'info');
+
+                    // First try QuaggaJS on the still image
+                    console.log('Trying still image with QuaggaJS');
+                    const quaggaResult = await new Promise((resolve) => {
+                        Quagga.decodeSingle({
+                            decoder: {
+                                readers: ["code_128_reader", "ean_reader", "upc_reader"],
+                                multiple: false
+                            },
+                            locate: true,
+                            src: imageUrl
+                        }, function(result) {
+                            if (result && result.codeResult) {
+                                resolve(result);
+                            } else {
+                                resolve(null);
+                            }
+                        });
+                    });
+
+                    if (quaggaResult) {
+                        console.log('QuaggaJS found barcode on still image:', quaggaResult.codeResult.code);
+                        await this.processDetectedCode(quaggaResult.codeResult.code, 'still-image-barcode');
+                        return;
+                    }
+
+                    // If QuaggaJS failed, try OCR
+                    console.log('Starting OCR processing on captured image');
+                    const ocrResult = await this.worker.recognize(imageUrl);
+                    console.log('OCR complete, result:', ocrResult);
+
+                    // Extract numbers and handle SSCC format
+                    let numbers = ocrResult.data.text.replace(/[^\d()]/g, '');
+                    console.log('Raw extracted numbers:', numbers);
+
+                    // Handle (00) prefix for SSCC
+                    if (numbers.startsWith('(00)')) {
+                        numbers = numbers.substring(4);
+                    }
+
+                    // Remove any remaining parentheses
+                    numbers = numbers.replace(/[()]/g, '');
+                    console.log('Processed numbers:', numbers);
+
+                    if (numbers.length > 0) {
+                        await this.processDetectedCode(numbers, 'ocr');
+                    } else {
+                        this.showFeedback('OCR could not detect any numbers. Try taking a clearer picture.', 'warning');
+                    }
+                } catch (error) {
+                    console.error('Error processing image with OCR:', error);
+                    this.showFeedback('Error processing image. Please try again.', 'error');
+                }
+            },
+
             // Method to provide visual feedback to the user
             showFeedback(message, type = 'info') {
+                // First check if we're still on a scanner page
+                if (!this.isOnScannerPage()) {
+                    console.log('No longer on scanner page, cancelling feedback');
+                    return;
+                }
+
                 console.log(`Feedback (${type}): ${message}`);
 
                 // Create or get feedback element
@@ -378,7 +423,7 @@
 
                 // Auto-hide after 3 seconds
                 setTimeout(() => {
-                    feedbackEl.style.opacity = '0';
+                    if (feedbackEl) feedbackEl.style.opacity = '0';
                 }, 3000);
             },
 
@@ -394,7 +439,6 @@
                 // Check if camera access is available
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     console.error('getUserMedia not supported in this browser');
-                    this.fallbackToFileUpload();
                     return;
                 }
 
@@ -417,53 +461,23 @@
                     numOfWorkers: navigator.hardwareConcurrency || 4,
                     decoder: {
                         readers: ["code_128_reader", "ean_reader", "upc_reader"],
-                        multiple: false,  // Only detect one barcode at a time
-                        debug: {
-                            showCanvas: true,
-                            showPatches: true,
-                            showFoundPatches: true,
-                            showSkeleton: true,
-                            showLabels: true,
-                            showPatchLabels: true,
-                            showRemainingPatchLabels: true,
-                        }
+                        multiple: false  // Only detect one barcode at a time
                     },
                     locate: true,
                     frequency: 10  // Increase scan frequency (process 10 frames per second)
                 }, (err) => {
                     if (err) {
                         console.error('Error initializing Quagga:', err);
-                        this.fallbackToFileUpload();
                         return;
                     }
 
                     console.log('Quagga initialized successfully');
                     Quagga.start();
 
-                    // Track processing for frequency analysis
-                    let lastProcessed = Date.now();
-                    let frequencyTotal = 0;
-                    let frequencyCount = 0;
-
                     // Add barcode detection event listener
                     Quagga.onDetected((result) => {
                         // Track last detection time
                         this.lastDetectionAttempt = Date.now();
-
-                        // Track processing frequency
-                        const now = Date.now();
-                        const elapsed = now - lastProcessed;
-                        lastProcessed = now;
-
-                        frequencyTotal += elapsed;
-                        frequencyCount++;
-
-                        if (frequencyCount >= 10) {
-                            const avgFrequency = frequencyTotal / frequencyCount;
-                            console.log(`Average processing frequency: ${Math.round(1000/avgFrequency)} fps`);
-                            frequencyTotal = 0;
-                            frequencyCount = 0;
-                        }
 
                         // Check confidence score
                         if (result.codeResult.confidence > 0.75) {
@@ -504,31 +518,73 @@
                 });
             },
 
-            fallbackToFileUpload() {
-                console.log('Falling back to file upload mode');
-                this.TEST_MODE = true;
-                this.setupFileInput();
-                this.setupRefreshButton();
-            },
-
             // Cleanup function for Livewire page changes
             cleanup() {
-                if (this.worker) {
-                    this.worker.terminate();
+                console.log('Performing scanner cleanup');
+
+                // Clear all timeouts
+                if (this.noDetectionTimeout) {
+                    clearTimeout(this.noDetectionTimeout);
+                    this.noDetectionTimeout = null;
                 }
-                if (!this.TEST_MODE && Quagga) {
-                    Quagga.stop();
+
+                // Remove any feedback elements
+                const feedbackEl = document.getElementById('barcode-feedback');
+                if (feedbackEl && feedbackEl.parentNode) {
+                    feedbackEl.parentNode.removeChild(feedbackEl);
+                }
+
+                // Remove OCR button
+                const ocrButton = document.getElementById('manual-ocr-btn');
+                if (ocrButton && ocrButton.parentNode) {
+                    ocrButton.parentNode.removeChild(ocrButton);
+                }
+
+                // Terminate workers
+                if (this.worker) {
+                    try {
+                        this.worker.terminate();
+                    } catch (e) {
+                        console.error('Error terminating Tesseract worker:', e);
+                    }
+                }
+
+                // Stop Quagga
+                if (typeof Quagga !== 'undefined') {
+                    try {
+                        Quagga.stop();
+                    } catch (e) {
+                        console.error('Error stopping Quagga:', e);
+                    }
                 }
 
                 // Restore original console methods
                 this.restoreConsole();
 
+                // Reset all state
                 this.isInitialized = false;
                 this.worker = null;
+                this.isProcessing = false;
+                this.failedAttempts = 0;
+                this.lastSuccessTime = 0;
+                this.lastDetectionAttempt = 0;
+
+                console.log('Scanner cleanup completed');
+            },
+
+            // Method to safely initialize the scanner
+            safeInitialize() {
+                // Only initialize if we're on a scanner page
+                if (this.isOnScannerPage() && !this.isInitialized) {
+                    console.log('On scanner page, initializing...');
+                    this.initializeScanner();
+                } else {
+                    console.log('Not on scanner page or already initialized, skipping initialization');
+                }
             }
         };
 
-        // Function to check if all required dependencies are loaded
+        // Function to check if dependencies are loaded
         function checkDependencies() {
             if (typeof Quagga === 'undefined') {
                 console.warn('QuaggaJS not loaded');
@@ -541,13 +597,14 @@
             return true;
         }
 
-        // Function to check if the camera element exists
-        function cameraElementExists() {
-            return document.getElementById('camera-preview') !== null;
-        }
+        // Try to initialize scanner with retries
+        function tryInitialize(retryCount = 0, maxRetries = 20) {
+            // Skip if not on scanner page
+            if (!window.BarcodeScanner.isOnScannerPage()) {
+                console.log('Not on scanner page, skipping initialization');
+                return;
+            }
 
-        // Function to initialize scanner when dependencies and DOM elements are ready
-        function initializeWhenReady(retryCount = 0, maxRetries = 20) {
             console.log(`Initialization attempt ${retryCount + 1}/${maxRetries}`);
 
             if (window.BarcodeScanner.isInitialized) {
@@ -560,88 +617,52 @@
             if (!dependenciesLoaded) {
                 if (retryCount < maxRetries) {
                     console.log('Dependencies not loaded yet, retrying in 300ms');
-                    setTimeout(() => initializeWhenReady(retryCount + 1, maxRetries), 300);
+                    setTimeout(() => tryInitialize(retryCount + 1, maxRetries), 300);
                 } else {
                     console.error('Failed to load dependencies after multiple attempts');
                 }
                 return;
             }
 
-            // Check if camera element exists
-            if (cameraElementExists()) {
-                console.log('Camera preview element found, initializing scanner');
-                window.BarcodeScanner.initializeScanner();
-            } else {
-                if (retryCount < maxRetries) {
-                    console.log('Camera preview element not found yet, retrying in 300ms');
-                    setTimeout(() => initializeWhenReady(retryCount + 1, maxRetries), 300);
-                } else {
-                    console.warn('Camera preview element not found after multiple attempts');
-                    // Fallback to test mode if camera element never appears
-                    window.BarcodeScanner.TEST_MODE = true;
-                    window.BarcodeScanner.initializeScanner();
-                }
-            }
+            // Try to initialize the scanner
+            window.BarcodeScanner.safeInitialize();
         }
 
-        // Initialize scanner when the page loads - use both approaches for maximum compatibility
-
-        // Approach 1: Start checking as soon as the script runs
-        (function immediateCheck() {
-            console.log('Immediate scanner initialization check');
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                initializeWhenReady();
-            } else {
-                setTimeout(immediateCheck, 100);
-            }
-        })();
-
-        // Approach 2: Listen for DOM content loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, checking for scanner dependencies and elements');
-            initializeWhenReady();
-        });
-
-        // Approach 3: Listen for window load (last resort)
-        window.addEventListener('load', () => {
-            console.log('Window loaded, checking for scanner dependencies and elements');
-            if (!window.BarcodeScanner.isInitialized) {
-                initializeWhenReady();
-            }
-        });
-
-        // Approach 4: Also listen for Livewire events
-        document.addEventListener('livewire:load', () => {
-            console.log('Livewire loaded, checking for scanner dependencies and elements');
-            if (!window.BarcodeScanner.isInitialized) {
-                initializeWhenReady();
-            }
-        });
-
-        // Listen for Livewire updates that might add the camera element later
-        document.addEventListener('livewire:update', () => {
-            console.log('Livewire updated, checking for camera element');
-            if (!window.BarcodeScanner.isInitialized && cameraElementExists() && checkDependencies()) {
-                console.log('Camera element found after Livewire update, initializing scanner');
-                window.BarcodeScanner.initializeScanner();
-            }
-        });
-
-        // Alpine.js integration if it's being used
-        if (typeof window.Alpine !== 'undefined') {
-            document.addEventListener('alpine:initialized', () => {
-                console.log('Alpine initialized, checking for scanner');
-                if (!window.BarcodeScanner.isInitialized) {
-                    initializeWhenReady();
-                }
-            });
-        }
+        // Register key event listeners
 
         // Clean up on navigation
         document.addEventListener('livewire:navigating', () => {
             console.log('Navigation detected, cleaning up scanner');
             window.BarcodeScanner.cleanup();
         });
+
+        // Setup initialization methods
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, attempting initialization');
+            tryInitialize();
+        });
+
+        // Listen for Livewire events
+        document.addEventListener('livewire:load', () => {
+            console.log('Livewire loaded, attempting initialization');
+            tryInitialize();
+        });
+
+        document.addEventListener('livewire:update', () => {
+            console.log('Livewire updated, checking scanner status');
+            if (window.BarcodeScanner.isOnScannerPage() && !window.BarcodeScanner.isInitialized) {
+                console.log('Scanner element found after Livewire update, initializing');
+                tryInitialize();
+            }
+        });
+
+        // Immediate check
+        (() => {
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                console.log('Document already interactive or complete, attempting immediate initialization');
+                tryInitialize();
+            }
+        })();
     </script>
 @endsection
 <x-app-layout>
