@@ -869,7 +869,7 @@
                                         class="ssccButton">
                                     Zoeken
                                 </button>
-                                <div class="mb-4 mt-4 max-w-2xl mx-auto sm:px-1 lg:px-2" id="camera-preview"></div>
+                                <div class="mb-6 mt-6 max-w-fit max-h-dvh mx-auto sm:px-1 lg:px-2" id="camera-preview"></div>
                                 <canvas class="drawingBuffer" style="display: none"></canvas>
                             </div>
 
