@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\DataService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -106,6 +108,29 @@ class BarcodeController extends Controller
         Log::info('No data found for barcode', ['barcode' => $barcode]);
 
         return back()->with('warning', 'Helaas niets gevonden.');
+    }
+
+    public function getValidBarcodes(): JsonResponse
+    {
+        // Combine both types of barcodes into a single collection
+        $validCodes = collect([])
+            ->concat(
+                DB::table('artikels')
+                    ->select('ean as code')
+                    ->selectRaw("'ean' as type")
+                    ->whereNotNull('ean')
+                    ->get()
+            )
+            ->concat(
+                DB::table('sscc')
+                    ->select('sscc as code')
+                    ->selectRaw("'sscc' as type")
+                    ->whereNotNull('sscc')
+                    ->distinct('sscc')
+                    ->get()
+            );
+
+        return response()->json($validCodes);
     }
 
 

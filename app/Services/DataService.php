@@ -64,8 +64,8 @@ class DataService
     public function countSscc()
     {
         return DB::table('sscc')
-            ->select('sscc', DB::raw('count(*) as total'))
-            ->groupBy('sscc')
+            ->select('sscc')
+            ->distinct('sscc')
             ->get();
     }
 

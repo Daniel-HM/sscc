@@ -19,8 +19,6 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-// Route::get('/check-mailbox', [MailboxController::class, 'checkMailbox']);
-// Route::get('/verwerk', [PakbonController::Class, 'findCsvFiles']);
 
 Route::get('/search', function () {
     return view('search');
@@ -40,5 +38,7 @@ Route::controller(ArtikelsController::class)->group(function () {
 
 Route::get('/upload', [UploadController::class, 'show'])->name('upload.show');
 Route::post('/upload', [UploadController::class, 'upload'])->name('upload.store');
+
+Route::get('/valid-barcodes', [BarcodeController::class, 'getValidBarcodes'])->middleware(['auth']);
 
 require __DIR__ . '/auth.php';
