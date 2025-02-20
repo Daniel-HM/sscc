@@ -9,7 +9,7 @@
             validBarcodes: [],
             isProcessing: false,
             failedAttempts: 0,
-            MAX_FAILED_ATTEMPTS: 2,
+            MAX_FAILED_ATTEMPTS: 3,
             TEST_MODE: false,
 
             // Setup console filtering to suppress asm.js messages
@@ -71,6 +71,12 @@
 
                 console.log('Starting scanner initialization');
                 this.isInitialized = true;
+
+                // Initialize properties for tracking scan success/failure
+                this.lastSuccessTime = 0;
+                this.lastDetectionAttempt = 0;
+                this.noDetectionTimeout = null;
+                this.failedAttempts = 0;
 
                 // Setup console filtering to suppress asm.js messages
                 this.setupConsoleFiltering();
@@ -259,6 +265,10 @@
 
                         if (foundBarcode) {
                             console.log(`Valid ${isEAN ? 'EAN' : 'SSCC'} found:`, code);
+                            // Reset failed attempts on success
+                            this.failedAttempts = 0;
+                            this.lastSuccessTime = Date.now();
+
                             const barcodeInput = document.getElementById('barcode-input');
                             if (barcodeInput) {
                                 barcodeInput.value = code;
@@ -270,14 +280,106 @@
                         } else {
                             console.log(`${isEAN ? 'EAN' : 'SSCC'} not found in database:`, code);
                             this.failedAttempts++;
+                            this.showFeedback('Invalid barcode: Not found in database', 'warning');
                         }
                     } else {
                         console.log('Invalid number length, not an EAN-13 or SSCC-18:', code);
                         this.failedAttempts++;
+                        this.showFeedback(`Invalid barcode format: Expected EAN-13 or SSCC-18, got length ${code.length}`, 'warning');
+                    }
+
+                    // Check if we've exceeded the maximum failed attempts
+                    if (this.failedAttempts >= this.MAX_FAILED_ATTEMPTS) {
+                        console.log(`Maximum failed attempts (${this.MAX_FAILED_ATTEMPTS}) reached`);
+                        this.showFeedback('Too many failed attempts. Please try a different barcode or method.', 'error');
+                        // Reset the counter after showing feedback
+                        this.failedAttempts = 0;
                     }
                 } finally {
                     this.isProcessing = false;
                 }
+            },
+
+            // Add a method to handle "no detection" scenarios
+            setupNoDetectionTimeout() {
+                // Clear any existing timeout
+                if (this.noDetectionTimeout) {
+                    clearTimeout(this.noDetectionTimeout);
+                }
+
+                // Set a timeout to check if no barcodes have been detected for a while
+                this.noDetectionTimeout = setTimeout(() => {
+                    const now = Date.now();
+                    const lastSuccess = this.lastSuccessTime || 0;
+                    const timeSinceLastSuccess = now - lastSuccess;
+
+                    // If no successful scan in 20 seconds and camera is active
+                    if (timeSinceLastSuccess > 7000 && !this.TEST_MODE) {
+                        console.log('No barcode detected for an extended period');
+                        this.showFeedback('No barcode detected. Try adjusting the camera position or lighting.', 'info');
+
+                        // Reset the timeout
+                        this.setupNoDetectionTimeout();
+                    }
+                }, 20000); // Check every 20 seconds
+            },
+
+            // Method to provide visual feedback to the user
+            showFeedback(message, type = 'info') {
+                console.log(`Feedback (${type}): ${message}`);
+
+                // Create or get feedback element
+                let feedbackEl = document.getElementById('barcode-feedback');
+                if (!feedbackEl) {
+                    feedbackEl = document.createElement('div');
+                    feedbackEl.id = 'barcode-feedback';
+                    feedbackEl.style.position = 'absolute';
+                    feedbackEl.style.bottom = '20px';
+                    feedbackEl.style.left = '50%';
+                    feedbackEl.style.transform = 'translateX(-50%)';
+                    feedbackEl.style.padding = '10px 20px';
+                    feedbackEl.style.borderRadius = '4px';
+                    feedbackEl.style.fontSize = '14px';
+                    feedbackEl.style.fontWeight = 'bold';
+                    feedbackEl.style.zIndex = '1000';
+                    feedbackEl.style.transition = 'opacity 0.3s ease';
+
+                    const previewEl = document.getElementById('camera-preview');
+                    if (previewEl && previewEl.parentNode) {
+                        previewEl.parentNode.style.position = 'relative';
+                        previewEl.parentNode.appendChild(feedbackEl);
+                    } else {
+                        document.body.appendChild(feedbackEl);
+                    }
+                }
+
+                // Set colors based on message type
+                switch (type) {
+                    case 'error':
+                        feedbackEl.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+                        feedbackEl.style.color = 'white';
+                        break;
+                    case 'warning':
+                        feedbackEl.style.backgroundColor = 'rgba(255, 193, 7, 0.9)';
+                        feedbackEl.style.color = 'black';
+                        break;
+                    case 'success':
+                        feedbackEl.style.backgroundColor = 'rgba(40, 167, 69, 0.9)';
+                        feedbackEl.style.color = 'white';
+                        break;
+                    default: // info
+                        feedbackEl.style.backgroundColor = 'rgba(23, 162, 184, 0.9)';
+                        feedbackEl.style.color = 'white';
+                }
+
+                // Set content and show
+                feedbackEl.textContent = message;
+                feedbackEl.style.opacity = '1';
+
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    feedbackEl.style.opacity = '0';
+                }, 3000);
             },
 
             setupQuagga() {
@@ -314,9 +416,20 @@
                     },
                     numOfWorkers: navigator.hardwareConcurrency || 4,
                     decoder: {
-                        readers: ["code_128_reader", "ean_reader", "upc_reader"]
+                        readers: ["code_128_reader", "ean_reader", "upc_reader"],
+                        multiple: false,  // Only detect one barcode at a time
+                        debug: {
+                            showCanvas: true,
+                            showPatches: true,
+                            showFoundPatches: true,
+                            showSkeleton: true,
+                            showLabels: true,
+                            showPatchLabels: true,
+                            showRemainingPatchLabels: true,
+                        }
                     },
-                    locate: true
+                    locate: true,
+                    frequency: 10  // Increase scan frequency (process 10 frames per second)
                 }, (err) => {
                     if (err) {
                         console.error('Error initializing Quagga:', err);
@@ -327,10 +440,66 @@
                     console.log('Quagga initialized successfully');
                     Quagga.start();
 
+                    // Track processing for frequency analysis
+                    let lastProcessed = Date.now();
+                    let frequencyTotal = 0;
+                    let frequencyCount = 0;
+
                     // Add barcode detection event listener
                     Quagga.onDetected((result) => {
-                        console.log('Barcode detected:', result.codeResult.code);
-                        this.processDetectedCode(result.codeResult.code, 'live-barcode');
+                        // Track last detection time
+                        this.lastDetectionAttempt = Date.now();
+
+                        // Track processing frequency
+                        const now = Date.now();
+                        const elapsed = now - lastProcessed;
+                        lastProcessed = now;
+
+                        frequencyTotal += elapsed;
+                        frequencyCount++;
+
+                        if (frequencyCount >= 10) {
+                            const avgFrequency = frequencyTotal / frequencyCount;
+                            console.log(`Average processing frequency: ${Math.round(1000/avgFrequency)} fps`);
+                            frequencyTotal = 0;
+                            frequencyCount = 0;
+                        }
+
+                        // Check confidence score
+                        if (result.codeResult.confidence > 0.75) {
+                            console.log(`Barcode detected with high confidence (${result.codeResult.confidence.toFixed(2)}):`, result.codeResult.code);
+                            this.processDetectedCode(result.codeResult.code, 'live-barcode');
+                        } else {
+                            console.log(`Barcode detected but low confidence (${result.codeResult.confidence.toFixed(2)}):`, result.codeResult.code);
+                            // For low confidence, we increment failedAttempts but still try to process
+                            this.failedAttempts += 0.5; // Count as half an attempt
+                            this.processDetectedCode(result.codeResult.code, 'live-barcode-low-confidence');
+                        }
+                    });
+
+                    // Setup "no detection" timeout to provide feedback if no barcodes are detected
+                    this.setupNoDetectionTimeout();
+
+                    // Add processing hook to track scanning attempts even when no barcode is found
+                    Quagga.onProcessed((result) => {
+                        // Update last attempt time
+                        this.lastDetectionAttempt = Date.now();
+
+                        // Visualize the processed result
+                        if (result && result.codeResult && result.codeResult.code) {
+                            // Successful detection already handled by onDetected
+                        } else if (result && result.boxes) {
+                            // Found some boxes but couldn't decode a barcode
+                            // This is a "soft" failure - we tried but couldn't decode
+                            this.failedAttempts += 0.1; // Count as 1/10 of an attempt
+                        }
+
+                        // Check if camera is detecting anything consistently
+                        const inactivityPeriod = Date.now() - this.lastDetectionAttempt;
+                        if (inactivityPeriod > 5000) { // 5 seconds with no activity
+                            console.log("Camera appears to be inactive");
+                            this.showFeedback("No camera activity detected. Please ensure camera has proper permissions.", "warning");
+                        }
                     });
                 });
             },
