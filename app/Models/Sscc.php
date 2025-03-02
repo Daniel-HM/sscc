@@ -8,6 +8,37 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * 
+ *
+ * @property int $id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string $sscc
+ * @property int $aantal_collo
+ * @property int $aantal_ce
+ * @property int $artikel_id
+ * @property int $ordertype_id
+ * @property int $pakbon_id
+ * @property-read Artikels|null $Artikels
+ * @property-read Ordertypes|null $Ordertypes
+ * @property-read \App\Models\Pakbonnen|null $Pakbonnen
+ * @property-read Artikels|null $artikel
+ * @method static \Database\Factories\SsccFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereAantalCe($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereAantalCollo($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereArtikelId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereOrdertypeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc wherePakbonId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereSscc($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Sscc whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class Sscc extends Model
 {
     /** @use HasFactory<\Database\Factories\SsccFactory> */

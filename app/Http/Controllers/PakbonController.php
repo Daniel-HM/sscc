@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pakbonnen;
+use App\Services\DataService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -13,8 +14,43 @@ use Illuminate\Http\Request;
 class PakbonController extends Controller
 {
 
-    public function __construct(private readonly PdfController $pdfController)
+    private $dataService;
+
+    public function __construct(private readonly PdfController $pdfController, DataService $dataService)
     {
+        $this->dataService = $dataService;
+    }
+
+
+    public function list()
+    {
+        $pakbonnen = $this->dataService->getallPakbonnen()->sortByDesc('pakbonDatum');
+        return view('pakbonnen', ['pakbonnen' => $pakbonnen]);
+    }
+
+    // Show Pakbon contents
+    public function show($pakbon)
+    {
+        $pakbonNaam = $pakbon;
+        // Invalid format check
+        if (!preg_match('/^SPS-\d{8}$/', $pakbon)) {
+            return redirect()->route('pakbonnen.list')
+                ->withErrors(['error' => 'Pakbon niet gevonden.']);
+        }
+
+        // Get and check data
+        $artikels = collect($this->dataService->getArtikelsByPakbon($pakbon));
+        if ($artikels->isEmpty()) {
+            return redirect()->route('pakbonnen.list')
+                ->withErrors(['error' => 'Pakbon niet gevonden.']);
+        }
+        // Success case
+        return view('result', [
+            'data' => $artikels,
+            'type' => 'sps',
+            'barcode' => $pakbonNaam,
+            'table' => true
+        ]);
     }
 
     public function checkForPakbonFiles()

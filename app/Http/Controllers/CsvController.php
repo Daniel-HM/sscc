@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessCsvToDatabase;
 use App\Models\Artikels;
 use App\Models\Assortimentsgroep;
+use App\Models\FileUploads;
 use App\Models\Kassagroep;
 use App\Models\Leveranciers;
 use App\Models\Ordertypes;
@@ -239,18 +241,33 @@ class CsvController extends Controller
         return preg_replace('/\.(xlsx|pdf)$/', '', $fileName);
     }
 
-    protected function setConvertedToTrue($entry): void
+    protected function setConvertedToTrue($entry, $type = 'pakbon'): void
     {
-        try {
-            Pakbonnen::where('naam', $entry)->update(['isConverted' => 1]);
+        if ($type === 'pakbon') {
+            try {
+                Pakbonnen::where('naam', $entry)->update(['isConverted' => 1]);
 
-            Log::info('Pakbon entry "isConverted" set to true for ' . $entry);
+                Log::info('Pakbon entry "isConverted" set to true for ' . $entry);
 
-        } catch (Exception $e) {
-            Log::error('Error updating pakbon entry - converted to true failed', [
-                'error' => $e->getMessage(),
-                'entry' => $entry,
-            ]);
+            } catch (Exception $e) {
+                Log::error('Error updating pakbon entry - converted to true failed', [
+                    'error' => $e->getMessage(),
+                    'entry' => $entry,
+                ]);
+            }
+        }
+
+        if ($type === 'uploadedFile') {
+            try {
+                FileUploads::where('filename', $entry.'.xlsx')->update(['convertedToCsv' => 1]);
+                Log::info("Uploaded file {$entry} is converted to CSV");
+            } catch (Exception $e) {
+                Log::error('Error updating pakbon entry - converted to true failed', [
+                    'error' => $e->getMessage(),
+                    'entry' => $entry,
+                ]);
+            }
         }
     }
+
 }

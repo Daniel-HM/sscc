@@ -16,8 +16,14 @@
                 </div>
                 <div class="p-3 space-y-4">
                     <div>
-                        <h3 class="text-xl font-bold text-gray-200">{{ $data['omschrijving'] }}</h3>
-                        <p class="text-gray-500 mt-1">{{ $data['ean'] }}</p>
+                        <h3 class="text-xl font-bold text-gray-200">{{ $data->omschrijving }}</h3>
+                        <p class="text-gray-500 mt-1">{{ $data->ean }}</p>
+                        @if($data->voorraad)
+                            <p class="text-gray-500 mt-1">Totale voorraad: {{ $data->voorraad->totaal }}</p>
+                            <p class="text-gray-500 mt-1">Vrij: {{ $data->voorraad->vrij }}</p>
+                            <p class="text-gray-500 mt-1">Klantorder: {{ $data->voorraad->klantorder }}</p>
+                        @endif
+
                     </div>
 
                     <div class="flex justify-between items-center">
@@ -27,7 +33,7 @@
                         </div>
 
                         <div class="flex items-center gap-1 text-gray-200">
-                            {{ $data['leveranciers']['naam'] }}
+                            {{ $data->leveranciers->naam }}
                         </div>
                     </div>
 
@@ -49,7 +55,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', async function () {
             JsBarcode(".barcode").init();
-            JsBarcode("#barcode", "{{ $data['ean'] }}", {
+            JsBarcode("#barcode", "{{ $data->ean }}", {
                 format: "ean13",
                 lineColor: 'black',
                 width: 3,

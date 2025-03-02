@@ -14,12 +14,14 @@
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.5",
         "livewire/volt": "^1.0",
+        "maatwebsite/excel": "^3.1",
         "rap2hpoutre/fast-excel": "^5.5",
         "smalot/pdfparser": "^2.11",
         "webklex/laravel-imap": "^6.1"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.14",
+        "barryvdh/laravel-ide-helper": "^3.5",
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.3",
         "laravel/pail": "^1.1",

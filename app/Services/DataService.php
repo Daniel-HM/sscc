@@ -21,24 +21,93 @@ class DataService
         return Sscc::with('artikel')->get();
     }
 
-    public function getAllArtikels($paginated)
+    public function getAllArtikels($paginated, $orderBy = 'artikels.omschrijving', $direction = 'asc')
     {
-        if ($paginated) {
-            return Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep'])->paginate($paginated);
+        $query = Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep', 'voorraad']);
+
+        // Handle ordering by relationship column
+        if (strpos($orderBy, '.') !== false) {
+            [$relation, $column] = explode('.', $orderBy);
+
+            // Define join tables and conditions for each relation
+            $relationMap = [
+                'voorraad' => [
+                    'table' => 'voorraad',
+                    'first' => 'artikels.id',
+                    'operator' => '=',
+                    'second' => 'voorraad.artikel_id'
+                ],
+                'leveranciers' => [
+                    'table' => 'leveranciers',
+                    'first' => 'artikels.leverancier_id',
+                    'operator' => '=',
+                    'second' => 'leveranciers.id'
+                ],
+                'assortimentsgroep' => [
+                    'table' => 'assortimentsgroep',
+                    'first' => 'artikels.assortimentsgroep_id',
+                    'operator' => '=',
+                    'second' => 'assortimentsgroep.id'
+                ],
+                'kassagroep' => [
+                    'table' => 'kassagroep',
+                    'first' => 'artikels.kassagroep_id',
+                    'operator' => '=',
+                    'second' => 'kassagroep.id'
+                ]
+            ];
+
+            if (isset($relationMap[$relation])) {
+                $join = $relationMap[$relation];
+
+                // Add the join if not already added
+                $query->leftJoin(
+                    $join['table'],
+                    $join['first'],
+                    $join['operator'],
+                    $join['second']
+                );
+
+                // Use an alias for the main table to avoid column ambiguity
+                $query->select('artikels.*')
+                    ->orderBy("$relation.$column", $direction);
+            } else {
+                $query->orderBy($orderBy, $direction);
+            }
         } else {
-            return Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep'])->get();
+            $query->orderBy($orderBy, $direction);
+        }
+
+        if ($paginated) {
+            return $query->paginate($paginated);
+        } else {
+            return $query->get();
         }
     }
 
-    public function getAllLeveranciers()
+    public function getAllLeveranciers($paginated)
     {
-        return Leveranciers::all();
+        $query = Leveranciers::orderBy('naam', 'asc');
+
+        if ($paginated) {
+            return $query->paginate($paginated);
+        } else {
+            return $query->get();
+        }
     }
 
     public function getArtikelsBySscc($sscc)
     {
         return Cache::remember($sscc, now()->addHours(48), function () use ($sscc) {
-            return Sscc::select('sscc.*')
+            return Sscc::select(
+                'sscc.*',
+                'leveranciers.naam as leverancier_naam',
+                'sscc.aantal_ce as aantal_ce',
+                'ordertypes.omschrijving as ordertype',
+                'artikels.omschrijving',
+                'artikels.ean',
+                'artikels.id as artikel_id'
+            )
                 ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
                 ->join('artikels', 'sscc.artikel_id', '=', 'artikels.id')
                 ->join('assortimentsgroep', 'artikels.assortimentsgroep_id', '=', 'assortimentsgroep.id')
@@ -46,14 +115,16 @@ class DataService
                 ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
                 ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
                 ->where('sscc.sscc', $sscc)
-                ->with(['artikel', 'ordertypes'])
-                ->get();
+                ->with(['artikels', 'ordertypes'])
+                ->orderBy('artikels.omschrijving', 'asc')
+                ->get()
+                ->groupBy('leverancier_naam');
         });
     }
 
     public function getArtikelByEan($ean)
     {
-        return Artikels::where('ean', $ean)->with('leveranciers')->first();
+        return Artikels::where('ean', $ean)->with(['leveranciers', 'voorraad'])->first();
     }
 
     public function countArtikels()
@@ -88,8 +159,7 @@ class DataService
                 ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
                 ->join('leveranciers', 'artikels.leverancier_id', '=', 'leveranciers.id')
                 ->where('pakbonnen.naam', $sps)
-                ->orderBy('artikels.id')
-                ->orderBy('sscc.sscc')
+                ->orderBy('artikels.omschrijving', 'asc')
                 ->get()
                 ->groupBy('leveranciers.naam');
         });

@@ -13,24 +13,43 @@
                     <table class="table-auto text-sm w-full">
                         <thead>
                         <tr>
-                            <th class="p-1 text-left">Naam</th>
-                            <th class="p-1 text-right">Mail</th>
-                            <th class="p-1 text-right">Telefoon</th>
-                            <th class="p-1 text-right">Franco</th>
+                            <th class="p-2 text-left">Naam</th>
+                            <th class="p-2 text-left">Info</th>
                         </tr>
                         </thead>
                         <tbody>
                         @foreach ($leveranciers as $leverancier)
 
                             <tr class="even:bg-gray-900/50 odd:bg-gray-900/80">
-                                <td class="p-1">{{ $leverancier->naam }}</td>
-                                <td class="p-1 text-right">{{ $leverancier->mail }}</td>
-                                <td class="p-1 text-right">{{ $leverancier->telefoonnummer }}</td>
-                                <td class="p-1 text-right">{{ $leverancier->franco }}</td>
+                                <td class="p-2">{{ $leverancier->naam }}<br/>
+                                    @if($leverancier->adres_land)
+                                        <a class="text-gray-500/80">{{ $leverancier->adres_land }}</a>
+                                    @endif
+                                </td>
+                                @if($leverancier->email || $leverancier->telefoon || $leverancier->franco)
+
+                                    <td class="p-2 text-left">
+                                        @if($leverancier->email)
+                                            {{ $leverancier->email }}<br/>
+                                        @endif
+                                        @if($leverancier->telefoon)
+                                            Tel.: {{ $leverancier->telefoon }}<br/>
+                                        @endif
+                                        @if($leverancier->franco)
+                                            Franco: &euro;{{ $leverancier->franco }}
+                                        @endif
+                                    </td>
+                                @else
+                                    <td class="p-2 text-left">
+                                        <a class="text-gray-500/80">Geen info</a>
+                                    </td>
+                                @endif
+
                             </tr>
                         @endforeach
                         </tbody>
                     </table>
+                    {{ $leveranciers->links() }}
                 </div>
             </div>
         </div>

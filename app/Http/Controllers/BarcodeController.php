@@ -40,14 +40,14 @@ class BarcodeController extends Controller
             } elseif (preg_match('/^\d{18}$/', $validatedBarcode)) {
                 // Handles: 187119048018038368
                 Log::debug('Matched SSCC-18 pattern');
-                $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
+                $data = collect($this->dataService->getArtikelsBySscc($validatedBarcode));
                 $type = 'sscc';
                 $table = true;
             } elseif (preg_match('/^\(00\)\d{18}$/', $validatedBarcode)) {
                 // Handles: (00)187119048018038368
                 Log::debug('Matched SSCC with (00) prefix');
                 $validatedBarcode = Str::replace('(00)', '', $validatedBarcode);
-                $data = $this->dataService->getArtikelsBySscc($validatedBarcode);
+                $data = collect($this->dataService->getArtikelsBySscc($validatedBarcode));
                 $type = 'sscc';
                 $table = true;
             } elseif (preg_match('/^\d{13}$/', $validatedBarcode)) {

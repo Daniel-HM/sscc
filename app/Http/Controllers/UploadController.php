@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessUploadedFile;
+use App\Models\FileUploads;
 use App\Services\DataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +14,12 @@ use Illuminate\Validation\Rules\File;
 class UploadController extends Controller
 {
     protected $dataService;
+    protected $fileUploads;
 
-    public function __construct(DataService $dataService)
+    public function __construct(DataService $dataService, FileUploads $fileUploads)
     {
         $this->dataService = $dataService;
+        $this->fileUploads = $fileUploads;
     }
 
     public function show()
@@ -31,8 +35,6 @@ class UploadController extends Controller
     {
         Log::info('Upload request received', [
             'hasFile' => $request->hasFile('xlsx'),
-            'files' => $request->allFiles(),
-            'headers' => $request->headers->all()
         ]);
 
         if (!$request->hasFile('xlsx')) {
@@ -60,8 +62,10 @@ class UploadController extends Controller
                 'mimeType' => $file->getMimeType(),
                 'extension' => $file->getClientOriginalExtension()
             ]);
-
-            Storage::disk('local')->putFileAs('Uploads', $file, pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME).'-'.now()->format('Y-m-d').'.'.$file->extension());
+            $newName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME).'-'.now()->format('Y-m-d H-i-s').'.'.$file->extension();
+            Storage::disk('local')->putFileAs('Uploads', $file, $newName);
+            $uploadedFile = $this->fileUploads->create(['filename' => $newName]);
+            ProcessUploadedFile::dispatch($uploadedFile->id);
             return response()->json([
                 'message' => 'Upload voltooid'
             ]);
