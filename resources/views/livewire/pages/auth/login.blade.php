@@ -23,7 +23,6 @@ new #[Layout('layouts.guest')] class extends Component
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
     }
 }; ?>
-
 <div>
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />

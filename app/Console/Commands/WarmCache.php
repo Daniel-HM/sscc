@@ -56,4 +56,8 @@ class WarmCache extends Command
             Cache::put($sscc->sscc, $this->dataService->getArtikelsBySscc($sscc->sscc), now()->addHours(48));
         }
     }
+
+    private function warmArtikelsCache() {
+
+    }
 }

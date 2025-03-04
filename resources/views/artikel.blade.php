@@ -28,8 +28,9 @@
 
                     <div class="flex justify-between items-center">
                         <div class="space-y-1">
-                            <p class="text-2xl font-bold text-gray-200">Promoprijs</p>
-                            <p class="text-sm text-gray-500 line-through">Originele prijs</p>
+                            <p class="text-2xl font-bold text-gray-200">&euro;{{ $data->verkoopprijs }}</p>
+                           {{-- <p class="text-2xl font-bold text-gray-200">Promoprijs</p>
+                            <p class="text-sm text-gray-500 line-through">Originele prijs</p>--}}
                         </div>
 
                         <div class="flex items-center gap-1 text-gray-200">
@@ -42,7 +43,7 @@
                 <div class="relative">
                     <img
                         src="https://placehold.co/400x300"
-                        alt="Product"
+                        alt="{{ $data->omschrijving }}"
                         class="w-full h-52 object-cover"
                     />
                     {{--                <span class="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">

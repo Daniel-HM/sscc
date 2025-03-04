@@ -32,7 +32,7 @@
                                 <td class="p-1 text-left"><a
                                         href="{{ route('pakbonnen.show', $pakbon->naam) }}">{{ $pakbon->naam }}</a>
                                 </td>
-                                <td class="p-1 text-right">{{ \Carbon\Carbon::parse($pakbon->pakbonDatum)->locale('nl')->isoFormat('dddd D MMMM') }}</td>
+                                <td class="p-1 text-right">{{ \Carbon\Carbon::parse($pakbon->pakbonDatum)->locale('nl')->isoFormat('dddd D MMMM Y') }}</td>
                             </tr>
                         @endforeach
                     </table>

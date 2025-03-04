@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Artikels;
+use App\Models\Assortimentsgroep;
 use App\Models\Leveranciers;
 use App\Models\Pakbonnen;
 use App\Models\Sscc;
@@ -91,6 +92,7 @@ class DataService
 
         if ($paginated) {
             return $query->paginate($paginated);
+
         } else {
             return $query->get();
         }
@@ -124,30 +126,40 @@ class DataService
 
     public function getArtikelByEan($ean)
     {
-        return Artikels::where('ean', $ean)->with(['leveranciers', 'voorraad'])->first();
+        return Cache::remember($ean, now()->addHours(48), function () use ($ean) {
+            return Artikels::where('ean', $ean)->with(['leveranciers', 'voorraad'])->first();
+        });
     }
 
     public function countArtikels()
     {
-        return Artikels::count();
+        return Cache::remember('countArtikels', now()->addHours(48), function () {
+            return Artikels::count();
+        });
     }
 
     public function countSscc()
     {
-        return DB::table('sscc')
-            ->select('sscc')
-            ->distinct('sscc')
-            ->get();
+        return Cache::remember('countSscc', now()->addHours(48), function () {
+            return DB::table('sscc')
+                ->select('sscc')
+                ->distinct('sscc')
+                ->get();
+        });
     }
 
     public function countPakbonnen()
     {
-        return Pakbonnen::count();
+        return Cache::remember('countPakbonnen', now()->addHours(48), function () {
+            return Pakbonnen::count();
+        });
     }
 
     public function countLeveranciers()
     {
-        return Leveranciers::count();
+        return Cache::remember('countLeveranciers', now()->addHours(48), function () {
+            return Leveranciers::count();
+        });
     }
 
     public function getArtikelsByPakbon($sps)
@@ -164,4 +176,29 @@ class DataService
                 ->groupBy('leveranciers.naam');
         });
     }
+
+    public function countArtikelsByAssortimentsgroep()
+    {
+        $cacheKey = 'artikels_by_assortimentsgroep_counts';
+
+        // Try to get the entire result from cache first
+        $data = Cache::remember($cacheKey, now()->addHours(48), function () {
+            $result = [];
+            $assortimentsgroepen = Assortimentsgroep::all();
+
+            foreach ($assortimentsgroepen as $assortimentsgroep) {
+                $count = Artikels::where('assortimentsgroep_id', $assortimentsgroep->id)->count();
+
+                if ($count > 0) {
+                    $result[$assortimentsgroep->omschrijving] = $count;
+                }
+            }
+
+            return $result;
+        });
+
+        return collect($data)->sortDesc()->take(20);
+    }
+
+
 }

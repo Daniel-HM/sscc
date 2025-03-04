@@ -78,7 +78,7 @@ class ImportArtikelsCsv extends Command
         $this->info("Processing CSV data in batches of $batchSize...");
         $this->info("Using semicolon (;) as delimiter...");
 
-        $progressBar = $this->output->createProgressBar(200000); // Assuming up to 200k rows
+        $progressBar = $this->output->createProgressBar(1000000); // Assuming up to 1M rows
         $progressBar->start();
 
         while (($row = fgetcsv($handle, 0, ';')) !== false) {
