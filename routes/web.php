@@ -15,7 +15,6 @@ Route::view('/', 'welcome');
 
 Route::get('/logout', [LogoutController::class, 'logout'])->name('logout');
 
-Route::post('/login', [LoginController::class, 'login'])->name('login');
 
 Route::get('/dashboard', [DashboardController::class, 'show'])
     ->middleware(['auth', 'verified'])
