@@ -14,7 +14,7 @@
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body class="font-sans antialiased">
 <div class="min-h-screen bg-gray-200 dark:bg-gray-950">

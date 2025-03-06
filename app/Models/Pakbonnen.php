@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -46,17 +46,10 @@ class Pakbonnen extends Model
     // DO NOT PLURALIZE DANGIT
     protected $table = 'pakbonnen';
 
-    /** @use HasFactory<PakbonnenFactory> */
-    use HasFactory;
 
-    /**
-     * Get the Sscc that owns the Pakbonnen
-     *
-     * @return BelongsTo
-     */
-    public function Sscc(): BelongsTo
+    public function Sscc(): BelongsToMany
     {
-        return $this->belongsTo(Sscc::class);
+        return $this->BelongsToMany(Sscc::class);
     }
 
     public function Artikels(): BelongsTo

@@ -35,7 +35,8 @@ class WarmCache extends Command
     public function handle()
     {
         $this->warmSpsCache();
-        $this->warmSsccCache();
+        $this->warmArtikelCache();
+        // $this->warmSsccCache();
     }
 
     private function warmSpsCache()
@@ -57,7 +58,11 @@ class WarmCache extends Command
         }
     }
 
-    private function warmArtikelsCache() {
-
+    // All artikel info for artikel page - [EAN][Array with data]
+    private function warmArtikelCache()
+    {
+        foreach ($this->dataService->getAllEans() as $ean) {
+            Cache::put($ean, $this->dataService->getArtikelByEan($ean), now()->addHours(48));
+        }
     }
 }

@@ -7,6 +7,7 @@ use App\Imports\LeveranciersImport;
 use App\Models\Leveranciers;
 use App\Services\ExcelTypeDetector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -35,7 +36,8 @@ class ExcelController extends Controller
                     Log::info('success', ['Leveranciers successfully imported.']);
                     break;
                 case 'artikels':
-                    Excel::import(new ArtikelsImport, $file);
+                    //Excel::import(new ArtikelsImport, $file);
+                    Artisan::call('import:artikels-csv', $file);
                     Log::info('success', ['Artikels successfully imported.']);
                     break;
                 case 'voorraad':

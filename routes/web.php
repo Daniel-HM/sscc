@@ -9,6 +9,7 @@ use App\Http\Controllers\LeveranciersController;
 use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\PakbonController;
 use App\Http\Controllers\UploadController;
+use App\Http\Middleware\CustomPostSize;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome');
@@ -41,7 +42,9 @@ Route::controller(ArtikelsController::class)->group(function () {
 });
 
 Route::get('/upload', [UploadController::class, 'show'])->name('upload.show');
-Route::post('/upload', [UploadController::class, 'upload'])->name('upload.store');
+Route::post('/upload', [UploadController::class, 'upload'])
+    ->middleware(CustomPostSize::class)
+    ->name('upload.store');
 
 Route::controller(PakbonController::class)->group(function () {
     Route::get('/pakbonnen', 'list')->name('pakbonnen.list');

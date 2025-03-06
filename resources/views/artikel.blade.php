@@ -19,37 +19,50 @@
                         <h3 class="text-xl font-bold text-gray-200">{{ $data->omschrijving }}</h3>
                         <p class="text-gray-500 mt-1">{{ $data->ean }}</p>
                         @if($data->voorraad)
-                            <p class="text-gray-500 mt-1">Totale voorraad: {{ $data->voorraad->totaal }}</p>
-                            <p class="text-gray-500 mt-1">Vrij: {{ $data->voorraad->vrij }}</p>
-                            <p class="text-gray-500 mt-1">Klantorder: {{ $data->voorraad->klantorder }}</p>
+                            <ul>
+                            <li class="text-gray-500 mt-1">Totale voorraad: {{ $data->voorraad->totaal }}</li>
+                            <li class="text-gray-500 mt-1">Vrij: {{ $data->voorraad->vrij }}</li>
+                            <li class="text-gray-500 mt-1">Klantorder: {{ $data->voorraad->klantorder }}</li>
+                            </ul>
                         @endif
-
+                        <p class="text-gray-500 mt-1">Laatste voorraad update: {{ \Carbon\Carbon::parse($data->voorraad->updated_at)->locale('nl')->isoFormat('dddd D MMMM Y') }}</p>
                     </div>
 
                     <div class="flex justify-between items-center">
                         <div class="space-y-1">
                             <p class="text-2xl font-bold text-gray-200">&euro;{{ $data->verkoopprijs }}</p>
-                           {{-- <p class="text-2xl font-bold text-gray-200">Promoprijs</p>
-                            <p class="text-sm text-gray-500 line-through">Originele prijs</p>--}}
+                            {{-- <p class="text-2xl font-bold text-gray-200">Promoprijs</p>
+                             <p class="text-sm text-gray-500 line-through">Originele prijs</p>--}}
                         </div>
 
                         <div class="flex items-center gap-1 text-gray-200">
                             {{ $data->leveranciers->naam }}
                         </div>
                     </div>
-
-
+                    @if($data->pakbonnen->isNotEmpty())
+                        <div>
+                            <p class="text-gray-500 mt-1 mb-2">Relevante pakbonnen:</p>
+                            <ul class="list-none">
+                                @foreach($data->pakbonnen->take(5) as $pakbon)
+                                    <li class="p-1"><a
+                                            class="hover:text-gray-400 hover:underline"
+                                            href="{{ route('pakbonnen.show', $pakbon->naam) }}">{{ $pakbon->naam }}</a> - {{ \Carbon\Carbon::parse($pakbon->pakbonDatum)->locale('nl')->isoFormat('dddd D MMMM Y') }}
+                                    </li>
+                                @endforeach
+                            </ul>
+                            @if($data->pakbonnen->count() > 5)
+                                <p class="text-sm text-gray-500">+ {{ $data->pakbonnen->count() - 5 }} andere</p>
+                            @endif
+                        </div>
+                    @endif
                 </div>
-                <div class="relative">
-                    <img
-                        src="https://placehold.co/400x300"
-                        alt="{{ $data->omschrijving }}"
-                        class="w-full h-52 object-cover"
-                    />
-                    {{--                <span class="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                            Sale
-                          </span>--}}
-                </div>
+                {{--                <div class="relative">
+                                    <img
+                                        src="https://placehold.co/400x300"
+                                        alt="{{ $data->omschrijving }}"
+                                        class="w-full h-52 object-cover"
+                                    />
+                                </div>--}}
             </div>
         </div>
     </section>

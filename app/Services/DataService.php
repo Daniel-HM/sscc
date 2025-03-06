@@ -7,6 +7,7 @@ use App\Models\Assortimentsgroep;
 use App\Models\Leveranciers;
 use App\Models\Pakbonnen;
 use App\Models\Sscc;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -27,7 +28,7 @@ class DataService
         $query = Artikels::with(['leveranciers', 'kassagroep', 'assortimentsgroep', 'voorraad']);
 
         // Handle ordering by relationship column
-        if (strpos($orderBy, '.') !== false) {
+        if (str_contains($orderBy, '.')) {
             [$relation, $column] = explode('.', $orderBy);
 
             // Define join tables and conditions for each relation
@@ -127,7 +128,9 @@ class DataService
     public function getArtikelByEan($ean)
     {
         return Cache::remember($ean, now()->addHours(48), function () use ($ean) {
-            return Artikels::where('ean', $ean)->with(['leveranciers', 'voorraad'])->first();
+            return Artikels::where('ean', $ean)
+                ->with(['leveranciers', 'voorraad', 'pakbonnen'])
+                ->first();
         });
     }
 
@@ -165,7 +168,7 @@ class DataService
     public function getArtikelsByPakbon($sps)
     {
         return Cache::remember($sps, now()->addHours(48), function () use ($sps) {
-            return Artikels::select('artikels.*', 'sscc.aantal_ce as aantal_ce', 'ordertypes.omschrijving as ordertype')
+            return Artikels::select('artikels.*', 'sscc.aantal_ce', 'ordertypes.omschrijving as ordertype', 'leveranciers.naam as leverancier_naam')
                 ->join('sscc', 'artikels.id', '=', 'sscc.artikel_id')
                 ->join('pakbonnen', 'sscc.pakbon_id', '=', 'pakbonnen.id')
                 ->join('ordertypes', 'sscc.ordertype_id', '=', 'ordertypes.id')
@@ -173,7 +176,7 @@ class DataService
                 ->where('pakbonnen.naam', $sps)
                 ->orderBy('artikels.omschrijving', 'asc')
                 ->get()
-                ->groupBy('leveranciers.naam');
+                ->groupBy('leverancier_naam');
         });
     }
 
@@ -198,6 +201,11 @@ class DataService
         });
 
         return collect($data)->sortDesc()->take(20);
+    }
+
+    public function getAllEans(): Collection
+    {
+        return Artikels::select('ean')->get();
     }
 
 
