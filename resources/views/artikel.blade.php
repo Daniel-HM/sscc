@@ -24,8 +24,8 @@
                             <li class="text-gray-500 mt-1">Vrij: {{ $data->voorraad->vrij }}</li>
                             <li class="text-gray-500 mt-1">Klantorder: {{ $data->voorraad->klantorder }}</li>
                             </ul>
+                            <p class="text-gray-500 mt-1">Laatste voorraad update: {{ \Carbon\Carbon::parse($data->voorraad->updated_at)->locale('nl')->isoFormat('dddd D MMMM Y') }}</p>
                         @endif
-                        <p class="text-gray-500 mt-1">Laatste voorraad update: {{ \Carbon\Carbon::parse($data->voorraad->updated_at)->locale('nl')->isoFormat('dddd D MMMM Y') }}</p>
                     </div>
 
                     <div class="flex justify-between items-center">
