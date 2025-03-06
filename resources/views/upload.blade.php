@@ -12,10 +12,9 @@
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-2 text-gray-900 dark:text-gray-100">
                         <form id="uploadForm" method="POST" action="{{ route('upload.store') }}" enctype="multipart/form-data">
-                            @csrf
                             <div>
-                                <label for="xlsx" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Enkel .xlsx toegestaan</label>
-                                <input type="file" name="xlsx" id="xlsx" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-96 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                                <label for="file" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Enkel .xlsx of .csv toegestaan</label>
+                                <input type="file" name="file" id="file" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-96 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
                             </div>
                             <div>
                                 <button type="submit" class="ssccButton">Upload</button>
@@ -43,7 +42,8 @@
                                         body: formData,
                                         headers: {
                                             'X-Requested-With': 'XMLHttpRequest',
-                                            'Accept': 'application/json'
+                                            'Accept': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                                         },
                                         credentials: 'same-origin'
                                     });
