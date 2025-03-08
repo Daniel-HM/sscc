@@ -53,7 +53,6 @@ class MailboxController extends Controller
         }
 
 
-        // Check if pakbon files have moved, make a note in DB
 
         return app(Pipeline::class)
             ->send(new \stdClass())

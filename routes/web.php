@@ -37,18 +37,19 @@ Route::post('/search', [BarcodeController::class, 'processBarcode'])
 Route::get('/leveranciers', [LeveranciersController::class, 'show'])->where('page', '[0-9]+')->name('leveranciers');
 
 Route::controller(ArtikelsController::class)->group(function () {
-    Route::get('/artikel/{ean}', 'getArtikel')->name('artikel');
-    Route::get('/artikels/{orderBy?}/{direction?}', 'show')->name('artikels')->where('page', '[0-9]+');
+    Route::get('/artikel/{ean}', 'getArtikel')->name('artikel')->middleware(['auth', 'verified']);
+    Route::get('/artikels/{orderBy?}/{direction?}', 'show')->name('artikels')->where('page', '[0-9]+')->middleware(['auth', 'verified']);
 });
 
-Route::get('/upload', [UploadController::class, 'show'])->name('upload.show');
+Route::get('/upload', [UploadController::class, 'show'])->name('upload.show')->middleware(['auth', 'verified']);
 Route::post('/upload', [UploadController::class, 'upload'])
     ->middleware(CustomPostSize::class)
+    ->middleware(['auth', 'verified'])
     ->name('upload.store');
 
 Route::controller(PakbonController::class)->group(function () {
-    Route::get('/pakbonnen', 'list')->name('pakbonnen.list');
-    Route::get('/pakbonnen/{pakbon}', 'show')->name('pakbonnen.show');
+    Route::get('/pakbonnen', 'list')->name('pakbonnen.list')->middleware(['auth', 'verified']);
+    Route::get('/pakbonnen/{pakbon}', 'show')->name('pakbonnen.show')->middleware(['auth', 'verified']);
 });
 Route::get('/valid-barcodes', [BarcodeController::class, 'getValidBarcodes'])->middleware(['auth']);
 

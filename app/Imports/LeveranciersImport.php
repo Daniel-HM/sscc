@@ -15,7 +15,7 @@ class LeveranciersImport implements ToModel, WithHeadingRow
         ], [
             'telefoon' => $row['telefoonnummer_tbv_order'] ?? null,
             'email' => $row['e_mail_adres_voor_orders'] ?? null,
-            'franco' => $row['franco_orderbedrag'] ?? null,
+            'franco' => str_replace(',', '.', $row['franco_orderbedrag']) ?? null,
             'adres_straat' => $row['goederenadres'] ?? null,
             'adres_postcode' => $row['goederenadres_postcode'] ?? null,
             'adres_plaatsnaam' => $row['goederenadres_plaatsnaam'] ?? null,

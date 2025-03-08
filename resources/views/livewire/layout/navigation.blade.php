@@ -95,7 +95,7 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('pakbonnen.list')" :active="request()->routeIs('pakbonnen.list')"
                                    wire:navigate>
-                {{ __('Upload') }}
+                {{ __('Pakbonnen') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('artikels')" :active="request()->routeIs('artikels')" wire:navigate>
                 {{ __('Artikels') }}

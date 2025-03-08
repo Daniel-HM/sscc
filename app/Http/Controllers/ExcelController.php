@@ -37,11 +37,12 @@ class ExcelController extends Controller
                     break;
                 case 'artikels':
                     //Excel::import(new ArtikelsImport, $file);
-                    Artisan::call('import:artikels-csv', $file);
+                    Artisan::call('import:artikels-csv', ['file' => $file]);
                     Log::info('success', ['Artikels successfully imported.']);
                     break;
                 case 'voorraad':
                     // Excel::import(new VoorraadImport, $file);
+                    Artisan::call('import:voorraad-csv', ['file' => $file]);
                     Log::info('success', ['Voorraad successfully imported.']);
                     break;
                 default:

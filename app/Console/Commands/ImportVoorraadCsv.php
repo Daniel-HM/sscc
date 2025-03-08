@@ -49,9 +49,9 @@ class ImportVoorraadCsv extends Command
         // Create a mapping of expected column names to their index
         $columnMap = [
             'ean' => array_search('EANCODE', $headers),
-            'totale_voorraad' => array_search('TOTALE_VOORRAAD', $headers),
-            'vrije_voorraad' => array_search('VRIJE_VOORRAAD', $headers),
-            'klantorder_voorraad' => array_search('KLANTORDER_VOORRAAD', $headers),
+            'totale' => array_search('TOTALE_VOORRAAD', $headers),
+            'vrije' => array_search('VRIJE_VOORRAAD', $headers),
+            'klantorder' => array_search('KLANTORDER_VOORRAAD', $headers),
         ];
 
         // Verify all required columns exist

@@ -33,19 +33,19 @@ class UploadController extends Controller
 
     public function upload(Request $request)
     {
-        Log::info('Upload request received', [
-            'hasFile' => $request->hasFile('xlsx'),
+        Log::info('Upload request received.', [
+            'hasFile' => $request->hasFile('file'),
         ]);
 
-        if (!$request->hasFile('xlsx')) {
+        if (!$request->hasFile('file')) {
             Log::warning('No file uploaded');
             return response()->json([
-                'message' => 'Geen bestand geselecteerd'
+                'message' => 'Geen bestand geselecteerd.'
             ], 422);
         }
 
         $validator = Validator::make($request->all(), [
-            'xlsx' => ['required', 'file', 'mimes:xlsx']
+            'file' => ['required', 'file', 'max:307200', 'mimes:xlsx,csv,txt']
         ]);
 
         if ($validator->fails()) {
@@ -56,7 +56,7 @@ class UploadController extends Controller
         }
 
         try {
-            $file = $request->file('xlsx');
+            $file = $request->file('file');
             Log::info('File details', [
                 'originalName' => $file->getClientOriginalName(),
                 'mimeType' => $file->getMimeType(),

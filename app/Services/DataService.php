@@ -15,7 +15,7 @@ class DataService
 {
     public function getAllPakbonnen()
     {
-        return Pakbonnen::all();
+        return Pakbonnen::all()->where('isVerwerkt', '=', 1);
     }
 
     public function getAllSscc()
