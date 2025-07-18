@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Milon\Barcode\DNS1D;
+use Milon\Barcode\Facades\DNS1DFacade as DNS1D;
 
 class BarcodeController extends Controller
 {
