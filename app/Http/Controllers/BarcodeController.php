@@ -135,7 +135,6 @@ class BarcodeController extends Controller
 
         return response()->json($validCodes);
     }
-
     /**
      * Generate EAN13 barcode image
      *
@@ -177,12 +176,31 @@ class BarcodeController extends Controller
      */
     private function generatePngBarcode($code)
     {
-        $barcode = DNS1D::getBarcodePNG($code, 'EAN13', 3, 50);
+        try {
+            // Check if GD extension is loaded
+            if (!extension_loaded('gd')) {
+                throw new \Exception('GD extension is required for PNG generation');
+            }
 
-        return response($barcode)
-            ->header('Content-Type', 'image/png')
-            ->header('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
-            ->header('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+            // Get base64 encoded PNG from milon/barcode
+            $barcodeBase64 = DNS1D::getBarcodePNG($code, 'EAN13', 3, 50);
+
+            // Decode the base64 string to binary data
+            $binaryData = base64_decode($barcodeBase64);
+
+            if ($binaryData === false) {
+                throw new \Exception('Failed to decode barcode data');
+            }
+
+            return response($binaryData)
+                ->header('Content-Type', 'image/png')
+                ->header('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
+                ->header('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+
+        } catch (\Exception $e) {
+            // Fallback to SVG if PNG fails
+            return $this->generateSvgBarcode($code);
+        }
     }
 
     /**
@@ -299,15 +317,34 @@ class BarcodeController extends Controller
                     ->header('Content-Type', 'image/svg+xml')
                     ->header('Cache-Control', 'public, max-age=31536000');
             } else {
-                $barcode = DNS1D::getBarcodePNG($code, 'EAN13', $width, $height);
-                return response($barcode)
-                    ->header('Content-Type', 'image/png')
-                    ->header('Cache-Control', 'public, max-age=31536000');
+                // For PNG, decode base64 and return binary data
+                try {
+                    if (!extension_loaded('gd')) {
+                        throw new \Exception('GD extension required for PNG');
+                    }
+
+                    $barcodeBase64 = DNS1D::getBarcodePNG($code, 'EAN13', $width, $height);
+                    $binaryData = base64_decode($barcodeBase64);
+
+                    if ($binaryData === false) {
+                        throw new \Exception('Failed to decode PNG data');
+                    }
+
+                    return response($binaryData)
+                        ->header('Content-Type', 'image/png')
+                        ->header('Cache-Control', 'public, max-age=31536000');
+
+                } catch (\Exception $e) {
+                    // Fallback to SVG if PNG fails
+                    $barcode = DNS1D::getBarcodeSVG($code, 'EAN13', $width, $height);
+                    return response($barcode)
+                        ->header('Content-Type', 'image/svg+xml')
+                        ->header('Cache-Control', 'public, max-age=31536000');
+                }
             }
 
         } catch (\Exception $e) {
             return $this->errorResponse('Error generating barcode: ' . $e->getMessage(), 500);
         }
     }
-
 }
