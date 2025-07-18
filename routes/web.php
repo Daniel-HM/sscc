@@ -56,10 +56,9 @@ Route::get('/valid-barcodes', [BarcodeController::class, 'getValidBarcodes'])->m
 Route::get('/excel', [ExcelController::class, 'importExcelFile'])->middleware(['auth']);
 
 
-// Basic EAN13 barcode generation (SVG format by default - more reliable)
-Route::get('/barcode/{code}', function($code) {
-    return app(BarcodeController::class)->generateEan13($code, 'svg');
-})->where('code', '[0-9]{12,13}')
+// Basic EAN13 barcode generation (PNG format - Excel compatible)
+Route::get('/barcode/{code}', [BarcodeController::class, 'generateEan13'])
+    ->where('code', '[0-9]{12,13}')
     ->name('barcode.ean13');
 
 // EAN13 barcode with format specification (PNG or SVG)
@@ -67,10 +66,9 @@ Route::get('/barcode/{code}/{format}', [BarcodeController::class, 'generateEan13
     ->where(['code' => '[0-9]{12,13}', 'format' => '(png|svg)'])
     ->name('barcode.ean13.format');
 
-// EAN13 barcode with custom dimensions (SVG by default)
-Route::get('/barcode/{code}/{width}/{height}', function($code, $width, $height) {
-    return app(BarcodeController::class)->generateCustomEan13($code, $width, $height, 'svg');
-})->where(['code' => '[0-9]{12,13}', 'width' => '[0-9]{1,2}', 'height' => '[0-9]{2,3}'])
+// EAN13 barcode with custom dimensions (PNG by default for Excel compatibility)
+Route::get('/barcode/{code}/{width}/{height}', [BarcodeController::class, 'generateCustomEan13'])
+    ->where(['code' => '[0-9]{12,13}', 'width' => '[0-9]{1,2}', 'height' => '[0-9]{2,3}'])
     ->name('barcode.ean13.custom');
 
 // EAN13 barcode with custom dimensions and format
