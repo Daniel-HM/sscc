@@ -9,9 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Milon\Barcode\DNS1D;
 
 class BarcodeController extends Controller
 {
+
+
 
     public function __construct(
         private readonly DataService $dataService
@@ -133,5 +136,178 @@ class BarcodeController extends Controller
         return response()->json($validCodes);
     }
 
+    /**
+     * Generate EAN13 barcode image
+     *
+     * @param string $code The EAN13 code (12 or 13 digits)
+     * @param string $format Image format (png, svg) - default: png
+     * @return Response
+     */
+    public function generateEan13($code, $format = 'png')
+    {
+        try {
+            // Validate EAN13 format (12 or 13 digits)
+            if (!$this->isValidEan13($code)) {
+                return $this->errorResponse('Invalid EAN13 code. Must be 12 or 13 digits.', 400);
+            }
+
+            // Ensure we have exactly 13 digits (calculate check digit if needed)
+            $code = $this->ensureEan13CheckDigit($code);
+
+            // Validate format parameter
+            $allowedFormats = ['png', 'svg'];
+            if (!in_array(strtolower($format), $allowedFormats)) {
+                return $this->errorResponse('Invalid format. Supported formats: png, svg', 400);
+            }
+
+            // Generate barcode based on format
+            if (strtolower($format) === 'svg') {
+                return $this->generateSvgBarcode($code);
+            } else {
+                return $this->generatePngBarcode($code);
+            }
+
+        } catch (\Exception $e) {
+            return $this->errorResponse('Error generating barcode: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Generate PNG barcode
+     */
+    private function generatePngBarcode($code)
+    {
+        $barcode = DNS1D::getBarcodePNG($code, 'EAN13', 3, 50);
+
+        return response($barcode)
+            ->header('Content-Type', 'image/png')
+            ->header('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
+            ->header('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+    }
+
+    /**
+     * Generate SVG barcode
+     */
+    private function generateSvgBarcode($code)
+    {
+        $barcode = DNS1D::getBarcodeSVG($code, 'EAN13', 3, 50);
+
+        return response($barcode)
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
+            ->header('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+    }
+
+    /**
+     * Validate EAN13 code format
+     */
+    private function isValidEan13($code)
+    {
+        // Remove any non-numeric characters
+        $code = preg_replace('/[^0-9]/', '', $code);
+
+        // Must be 12 or 13 digits
+        return preg_match('/^\d{12,13}$/', $code);
+    }
+
+    /**
+     * Ensure EAN13 has proper check digit
+     */
+    private function ensureEan13CheckDigit($code)
+    {
+        // Remove any non-numeric characters
+        $code = preg_replace('/[^0-9]/', '', $code);
+
+        if (strlen($code) === 13) {
+            // Validate the check digit
+            if ($this->validateEan13CheckDigit($code)) {
+                return $code;
+            } else {
+                // Recalculate check digit
+                $code = substr($code, 0, 12);
+            }
+        }
+
+        if (strlen($code) === 12) {
+            // Calculate and append check digit
+            return $code . $this->calculateEan13CheckDigit($code);
+        }
+
+        throw new \InvalidArgumentException('Invalid EAN13 code length');
+    }
+
+    /**
+     * Calculate EAN13 check digit
+     */
+    private function calculateEan13CheckDigit($code)
+    {
+        $sum = 0;
+        for ($i = 0; $i < 12; $i++) {
+            $digit = (int) $code[$i];
+            $sum += ($i % 2 === 0) ? $digit : $digit * 3;
+        }
+
+        $checkDigit = (10 - ($sum % 10)) % 10;
+        return $checkDigit;
+    }
+
+    /**
+     * Validate EAN13 check digit
+     */
+    private function validateEan13CheckDigit($code)
+    {
+        if (strlen($code) !== 13) {
+            return false;
+        }
+
+        $checkDigit = (int) substr($code, -1);
+        $calculatedCheckDigit = $this->calculateEan13CheckDigit(substr($code, 0, 12));
+
+        return $checkDigit === $calculatedCheckDigit;
+    }
+
+    /**
+     * Return error response
+     */
+    private function errorResponse($message, $status = 400)
+    {
+        return response()->json([
+            'error' => $message,
+            'status' => $status
+        ], $status);
+    }
+
+    /**
+     * Generate barcode with custom dimensions (alternative endpoint)
+     */
+    public function generateCustomEan13($code, $width = 3, $height = 50, $format = 'png')
+    {
+        try {
+            if (!$this->isValidEan13($code)) {
+                return $this->errorResponse('Invalid EAN13 code. Must be 12 or 13 digits.', 400);
+            }
+
+            $code = $this->ensureEan13CheckDigit($code);
+
+            // Validate dimensions
+            $width = max(1, min(10, (int) $width));   // Between 1-10
+            $height = max(20, min(200, (int) $height)); // Between 20-200
+
+            if (strtolower($format) === 'svg') {
+                $barcode = DNS1D::getBarcodeSVG($code, 'EAN13', $width, $height);
+                return response($barcode)
+                    ->header('Content-Type', 'image/svg+xml')
+                    ->header('Cache-Control', 'public, max-age=31536000');
+            } else {
+                $barcode = DNS1D::getBarcodePNG($code, 'EAN13', $width, $height);
+                return response($barcode)
+                    ->header('Content-Type', 'image/png')
+                    ->header('Cache-Control', 'public, max-age=31536000');
+            }
+
+        } catch (\Exception $e) {
+            return $this->errorResponse('Error generating barcode: ' . $e->getMessage(), 500);
+        }
+    }
 
 }
